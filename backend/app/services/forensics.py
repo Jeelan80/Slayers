@@ -1,29 +1,29 @@
+"""
+Forensics, Image Quality, Error Level Analysis (ELA), Perceptual Hashing (pHash),
+and Document QR Verification & Cross-Validation (DQVC) integration.
+"""
+
+from difflib import SequenceMatcher
 import io
 import re
-from datetime import datetime
-from difflib import SequenceMatcher
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import cv2
 import numpy as np
 from PIL import Image, ImageChops, ImageStat
 
-
-def normalize_text(value: Optional[str]) -> str:
-    if not value:
-        return ""
-    return re.sub(r"[^a-z0-9]", "", value.lower())
-
-
-def normalize_date(value: Optional[str]) -> str:
-    if not value:
-        return ""
-    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%d-%m-%y", "%d/%m/%y"):
-        try:
-            return datetime.strptime(value.strip(), fmt).date().isoformat()
-        except ValueError:
-            continue
-    return normalize_text(value)
+from .qr import (
+    STATUS_CROSS_VALIDATED,
+    STATUS_DECODED,
+    STATUS_DETECTED,
+    STATUS_NOT_FOUND,
+    cross_validate_3way,
+    decode_qr,
+    normalize_date,
+    normalize_id,
+    normalize_text,
+    parse_qr_payload,
+)
 
 
 def name_similarity(a: Optional[str], b: Optional[str]) -> float:
@@ -36,11 +36,16 @@ def name_similarity(a: Optional[str], b: Optional[str]) -> float:
 
 
 def blur_score(image: Image.Image) -> float:
+    """Calculates Laplacian variance as an objective measure of image sharpness."""
     arr = np.array(image.convert("L"))
     return float(cv2.Laplacian(arr, cv2.CV_64F).var())
 
 
 def quality_score(image: Image.Image) -> Tuple[float, str]:
+    """
+    Quality gate assessment to avoid false-positive rejections for blurry/low-res uploads.
+    Returns (score: 0.0-1.0, label: "LOW_QUALITY" | "BORDERLINE_QUALITY" | "GOOD_QUALITY")
+    """
     var = blur_score(image)
     if var < 40.0:
         return 0.35, "LOW_QUALITY"
@@ -51,8 +56,8 @@ def quality_score(image: Image.Image) -> Tuple[float, str]:
 
 def ela_score(image: Image.Image) -> Tuple[float, str]:
     """
-    Error Level Analysis: Recompress image as JPEG and analyze difference levels.
-    High differences indicate tampered regions with varying compression histories.
+    Error Level Analysis (ELA): Analyzes difference in JPEG compression error levels.
+    Spliced or edited regions exhibit distinct compression error rates compared to original pixels.
     """
     img = image.convert("RGB")
     buf = io.BytesIO()
@@ -80,80 +85,87 @@ def ela_score(image: Image.Image) -> Tuple[float, str]:
 
 
 def qr_payload(image: Image.Image) -> Dict[str, Any]:
-    arr = cv2.cvtColor(np.array(image.convert("RGB")), cv2.COLOR_RGB2BGR)
-    detector = cv2.QRCodeDetector()
-    data, points, _ = detector.detectAndDecode(arr)
+    """
+    Decodes QR code using PyZbar or OpenCV fallback.
+    Returns dict with available, raw payload, decoding method, and points.
+    """
+    decoded = decode_qr(image)
+    parsed = parse_qr_payload(decoded.get("raw"))
     return {
-        "available": bool(data),
-        "raw": data or None,
-        "points": points.tolist() if points is not None else None,
+        "status": decoded["status"],
+        "available": decoded["available"],
+        "raw": decoded.get("raw"),
+        "points": decoded.get("points"),
+        "method": decoded.get("method"),
+        "fields": parsed["fields"],
+        "format": parsed["format"],
     }
 
 
 def parse_qr_fields(raw: Optional[str]) -> Dict[str, str]:
-    if not raw:
-        return {}
-    text = raw.strip()
-    # Try parsing as JSON first
-    try:
-        import json
-        obj = json.loads(text)
-        if isinstance(obj, dict):
-            return {str(k).upper(): str(v) for k, v in obj.items()}
-    except Exception:
-        pass
-    
-    # Try parsing as semicolon or newline delimited key=value
-    fields: Dict[str, str] = {}
-    for piece in re.split(r"[;\n]+", text):
-        if "=" in piece:
-            k, v = piece.split("=", 1)
-            fields[k.strip().upper()] = v.strip()
-    return fields
+    """Parses QR string into normalized field mapping."""
+    return parse_qr_payload(raw).get("fields", {})
 
 
-def qr_cross_check(qr: Dict[str, Any], name: Optional[str], dob: Optional[str]) -> Dict[str, Any]:
-    if not qr.get("available"):
-        return {
-            "available": False,
-            "match": None,
-            "mismatch": False,
-            "reason": "QR not detected on document",
-            "fields": {},
-        }
+def qr_cross_check(
+    qr: Dict[str, Any],
+    name: Optional[str],
+    dob: Optional[str],
+    id_number: Optional[str] = None,
+    institution: Optional[str] = None,
+    reg_fields: Optional[Dict[str, Optional[str]]] = None,
+) -> Dict[str, Any]:
+    """
+    Dedicated DQVC (Document QR Verification & Cross-Validation) engine.
+    Conducts full 3-way cross-check:
+    - OCR <-> QR
+    - QR <-> Registration
+    - OCR <-> Registration
     
-    fields = parse_qr_fields(qr.get("raw"))
-    checks = []
-    reasons = []
-    
-    if "NAME" in fields and name:
-        name_ok = normalize_text(fields["NAME"]) == normalize_text(name)
-        checks.append(name_ok)
-        if not name_ok:
-            reasons.append(f"QR Name '{fields['NAME']}' does not match document name '{name}'")
-            
-    if "DOB" in fields and dob:
-        dob_ok = normalize_date(fields["DOB"]) == normalize_date(dob)
-        checks.append(dob_ok)
-        if not dob_ok:
-            reasons.append(f"QR DOB '{fields['DOB']}' does not match document DOB '{dob}'")
-            
-    if not checks:
-        return {
-            "available": True,
-            "match": None,
-            "mismatch": False,
-            "fields": fields,
-            "reason": "QR detected but contains no comparable identity fields",
+    Vocabulary: NOT_FOUND, DETECTED, DECODED, CROSS_VALIDATED.
+    """
+    qr_status = qr.get("status") or (STATUS_DECODED if qr.get("available") else STATUS_NOT_FOUND)
+    qr_fields = qr.get("fields") or parse_qr_fields(qr.get("raw"))
+
+    ocr_fields = {
+        "NAME": name,
+        "DOB": dob,
+        "ID_NUMBER": id_number,
+        "INSTITUTION": institution,
+    }
+
+    if reg_fields is None:
+        reg_fields = {
+            "name": name,
+            "dob": dob,
+            "id_number": id_number,
+            "institution": institution,
         }
-        
-    all_ok = all(checks)
+
+    validation_result = cross_validate_3way(
+        qr_fields=qr_fields,
+        ocr_fields=ocr_fields,
+        reg_fields=reg_fields,
+        qr_status=qr_status,
+    )
+
+    all_ok = validation_result["dqvc_status"] == STATUS_CROSS_VALIDATED
+    mismatch = validation_result["mismatch"]
+    reason_str = "; ".join(validation_result["reasons"]) if validation_result["reasons"] else ""
+
     return {
-        "available": True,
-        "match": all_ok,
-        "mismatch": not all_ok,
-        "fields": fields,
-        "reason": "QR payload matches printed/OCR fields" if all_ok else "; ".join(reasons),
+        "status": validation_result["dqvc_status"],
+        "dqvc_status": validation_result["dqvc_status"],
+        "available": validation_result["available"],
+        "decoded": validation_result["decoded"],
+        "match": all_ok if validation_result["available"] else None,
+        "mismatch": mismatch,
+        "tamper_detected": validation_result["tamper_detected"],
+        "consistency_score": validation_result["consistency_score"],
+        "reason": reason_str,
+        "fields": qr_fields,
+        "three_way_check": validation_result["three_way_check"],
+        "discrepancies": validation_result.get("discrepancies", []),
     }
 
 
@@ -171,4 +183,5 @@ def phash_hex(image: Image.Image) -> str:
 
 
 def phash_distance(a: str, b: str) -> int:
+    """Hamming distance between two 64-bit perceptual hashes."""
     return bin(int(a, 16) ^ int(b, 16)).count("1")

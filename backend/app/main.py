@@ -2,9 +2,9 @@ import io
 import json
 from datetime import date, datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +18,7 @@ from .db import (
     reset_db,
     update_registration_status,
 )
+from .services.academic import verify_student_enrollment
 from .services.decision import decide
 from .services.duplicate import duplicate_evidence, mask_id
 from .services.face import face_match_if_enabled
@@ -47,7 +48,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Static files paths
+BASE_DIR = Path(__file__).resolve().parent.parent
+SAMPLES_DIR = BASE_DIR / "app" / "static" / "samples"
+DEMOS_DIR = BASE_DIR / "static" / "demos"
+SAMPLES_DIR.mkdir(parents=True, exist_ok=True)
+DEMOS_DIR.mkdir(parents=True, exist_ok=True)
 
+app.mount("/static/samples", StaticFiles(directory=str(SAMPLES_DIR)), name="static_samples")
+app.mount("/static/demos", StaticFiles(directory=str(DEMOS_DIR)), name="static_demos")
 
 
 def parse_date(value: Optional[str]) -> Optional[date]:
@@ -73,6 +82,7 @@ def root():
         "version": settings.VERSION,
         "docs": "/docs",
         "health": "/api/health",
+        "samples": "/api/samples",
     }
 
 
@@ -85,6 +95,91 @@ def health():
         "aws_textract_enabled": settings.AWS_TEXTRACT_ENABLED,
         "aws_rekognition_enabled": settings.AWS_REKOGNITION_ENABLED,
     }
+
+
+@app.get("/api/samples")
+def list_demo_samples():
+    """
+    Returns synthetic benchmark demo samples with metadata and URLs
+    for instant one-click testing from the frontend.
+    """
+    samples = [
+        {
+            "id": "genuine",
+            "name": "Genuine College ID",
+            "filename": "genuine_college_id.png",
+            "url": "/static/samples/genuine_college_id.png",
+            "expected_decision": "APPROVE",
+            "description": "Clean, authentic college ID with matching name, DOB, and cross-validated machine QR payload.",
+            "form_data": {
+                "name": "Rahul Kumar",
+                "dob": "2005-03-14",
+                "id_number": "ABC20261023",
+                "institution": "ABC Institute of Technology",
+                "id_type": "COLLEGE_ID",
+                "min_age": 18,
+            },
+        },
+        {
+            "id": "duplicate",
+            "name": "Duplicate ID (Sybil Reuse)",
+            "filename": "duplicate_id.png",
+            "url": "/static/samples/duplicate_id.png",
+            "expected_decision": "REJECT",
+            "description": "Identical physical card reused under a different participant name to test Sybil prevention.",
+            "form_data": {
+                "name": "Impostor Sharma",
+                "dob": "2005-03-14",
+                "id_number": "ABC20261023",
+                "institution": "ABC Institute of Technology",
+                "id_type": "COLLEGE_ID",
+                "min_age": 18,
+            },
+        },
+        {
+            "id": "tampered",
+            "name": "Tampered DOB College ID",
+            "filename": "tampered_dob_id.png",
+            "url": "/static/samples/tampered_dob_id.png",
+            "expected_decision": "REJECT",
+            "description": "Visibly spliced DOB on card contradicting authentic machine QR payload (forgery/splicing).",
+            "form_data": {
+                "name": "Rahul Kumar",
+                "dob": "2007-04-14",
+                "id_number": "ABC20261023",
+                "institution": "ABC Institute of Technology",
+                "id_type": "COLLEGE_ID",
+                "min_age": 18,
+            },
+        },
+        {
+            "id": "blurry",
+            "name": "Blurry College ID",
+            "filename": "blurry_id.png",
+            "url": "/static/samples/blurry_id.png",
+            "expected_decision": "MANUAL_REVIEW",
+            "description": "Gaussian-blurred document triggering the false-positive quality gate without fraud penalty.",
+            "form_data": {
+                "name": "Rahul Kumar",
+                "dob": "2005-03-14",
+                "id_number": "ABC20261023",
+                "institution": "ABC Institute of Technology",
+                "id_type": "COLLEGE_ID",
+                "min_age": 18,
+            },
+        },
+    ]
+    return samples
+
+
+@app.get("/api/academic/verify")
+def academic_verify_endpoint(
+    institution: str = Query(..., description="Institution or university name"),
+    roll_number: str = Query(..., description="Student roll number or registration ID"),
+    name: str = Query(..., description="Student full name"),
+):
+    """Standalone API to test DigiLocker / NAD / Institutional academic verification."""
+    return verify_student_enrollment(institution=institution, roll_number=roll_number, name=name)
 
 
 @app.get("/api/registrations")
@@ -129,6 +224,7 @@ async def verify_registration(
     id_type: str = Form("COLLEGE_ID"),
     min_age: int = Form(18),
     event_date: str = Form(""),
+    demo_scenario: Optional[str] = Form(None),
     file: UploadFile = File(...),
     selfie: Optional[UploadFile] = File(None),
 ):
@@ -152,8 +248,8 @@ async def verify_registration(
         "id_type": id_type,
     }
 
-    # Step 1: OCR Extraction (AWS Textract or fallback)
-    ocr = extract_fields(image_bytes, fallback)
+    # Step 1: OCR Extraction (AWS Textract or local parser)
+    ocr = extract_fields(image_bytes, fallback, demo_scenario=demo_scenario)
     extracted_name = (ocr.get("NAME") or {}).get("value") or name
     extracted_dob = (ocr.get("DOB") or {}).get("value") or dob
     extracted_id = (ocr.get("ID_NUMBER") or {}).get("value") or id_number
@@ -168,9 +264,21 @@ async def verify_registration(
     ]
     ocr_conf = sum(q_conf) / len(q_conf) if q_conf else 0.85
 
-    # Step 2: QR payload decoding and cross check
+    # Step 2: DQVC (Document QR Verification & Cross-Validation) Engine
     qr_data = qr_payload(image)
-    qr_check = qr_cross_check(qr_data, extracted_name, extracted_dob)
+    qr_check = qr_cross_check(
+        qr=qr_data,
+        name=extracted_name,
+        dob=extracted_dob,
+        id_number=extracted_id,
+        institution=extracted_institution,
+        reg_fields={
+            "name": name,
+            "dob": dob,
+            "id_number": id_number,
+            "institution": institution,
+        },
+    )
 
     # Step 3: Forensic & Quality Analysis
     raw_blur = blur_score(image)
@@ -178,13 +286,20 @@ async def verify_registration(
     e_score, e_label = ela_score(image)
     p_hash = phash_hex(image)
 
-    # Step 4: Duplicate and reuse detection
+    # Step 4: Authoritative Academic Verification (DigiLocker / NAD / Institutional)
+    academic_check = verify_student_enrollment(
+        institution=extracted_institution,
+        roll_number=extracted_id,
+        name=extracted_name,
+    )
+
+    # Step 5: Duplicate and reuse detection
     dup = duplicate_evidence(extracted_id, p_hash)
 
-    # Step 5: Name consistency
+    # Step 6: Name consistency
     name_match = name_similarity(name, extracted_name)
 
-    # Step 6: Eligibility verification
+    # Step 7: Eligibility verification (Age check)
     effective_dob = parse_date(extracted_dob) or supplied_dob
     eligible = False
     age = None
@@ -192,45 +307,49 @@ async def verify_registration(
         age = calculate_age(effective_dob, event_dt)
         eligible = age >= min_age
 
-    # Step 7: Biometric face verification (optional selfie)
+    # Step 8: Biometric face verification (optional selfie)
     face = None
     if selfie is not None:
         selfie_bytes = await selfie.read()
         if selfie_bytes:
             face = face_match_if_enabled(image_bytes, selfie_bytes)
 
-    # Calculate duplicate risk and overall authenticity score
+    # Calculate duplicate risk and tamper score
     duplicate_risk = 1.0 if dup["exact_duplicate"] else (0.75 if dup["phash_possible_reuse"] else 0.0)
     
-    # ELA and QR penalty
-    authenticity_score = max(
-        0.0,
-        1.0 - max(
-            1.0 if qr_check["mismatch"] else 0.0,
-            e_score * 0.55,
-            (1.0 - q_score) * 0.40,
-        ),
+    # Severe tampering if QR code contradicts printed/OCR text
+    tamper_score = max(
+        1.0 if (qr_check["mismatch"] or qr_check.get("tamper_detected")) else 0.0,
+        e_score if e_score >= 0.65 else (e_score * 0.5),
     )
+    
+    consistency_score = qr_check.get("consistency_score", 1.0)
 
     evidence = {
         "ocr_confidence": ocr_conf,
-        "authenticity_score": authenticity_score,
+        "quality_score": q_score,
+        "tamper_score": tamper_score,
+        "consistency_score": consistency_score,
         "duplicate_risk": duplicate_risk,
         "exact_duplicate": dup["exact_duplicate"],
         "phash_possible_reuse": dup["phash_possible_reuse"],
         "qr_available": qr_check["available"],
+        "qr_status": qr_check["dqvc_status"],
         "qr_mismatch": qr_check["mismatch"],
+        "tamper_detected": qr_check.get("tamper_detected", False),
         "ela_flag": e_score >= 0.65,
         "quality_flag": q_label,
         "eligibility_pass": bool(eligible),
         "name_match": name_match,
+        "academic_status": academic_check["status"],
+        "academic_verified": academic_check["verified"],
         "face_match": face.get("score") if face and face.get("score") is not None else None,
     }
 
-    # Step 8: Multi-gate decision fusion
+    # Step 9: Multi-gate evidence fusion decision
     decision_result = decide(evidence)
 
-    # Format structured checks report
+    # Format comprehensive structured checks report
     checks = {
         "ocr": {
             "status": "PASS" if ocr_conf >= 0.80 else "REVIEW",
@@ -255,9 +374,24 @@ async def verify_registration(
             "label": e_label,
         },
         "qr": {
-            "status": "MISMATCH" if qr_check["mismatch"] else ("MATCH" if qr_check["available"] else "N/A"),
+            "status": qr_check["dqvc_status"],
+            "dqvc_status": qr_check["dqvc_status"],
+            "decoded": qr_check["decoded"],
+            "mismatch": qr_check["mismatch"],
+            "tamper_detected": qr_check.get("tamper_detected", False),
+            "consistency_score": round(consistency_score, 3),
             "reason": qr_check["reason"],
             "fields": qr_check.get("fields", {}),
+            "three_way_check": qr_check.get("three_way_check", {}),
+            "discrepancies": qr_check.get("discrepancies", []),
+        },
+        "academic": {
+            "status": academic_check["status"],
+            "verified": academic_check["verified"],
+            "provider": academic_check["provider"],
+            "remarks": academic_check["remarks"],
+            "trust_score": academic_check["trust_score"],
+            "record": academic_check.get("record"),
         },
         "name_match": {
             "status": "MATCH" if name_match >= 0.85 else ("REVIEW" if name_match >= 0.50 else "MISMATCH"),
@@ -269,6 +403,7 @@ async def verify_registration(
             "phash_matches": dup["phash_matches"],
         },
         "face": face or {"available": False, "status": "NOT_PROVIDED"},
+        "fusion_components": decision_result.get("components", {}),
     }
 
     extracted_dict = {
@@ -280,7 +415,7 @@ async def verify_registration(
         "ocr_mode": ocr.get("mode"),
     }
 
-    # Step 9: Persist registration to database
+    # Step 10: Persist registration to database
     reg_id = insert_registration(
         name=name,
         dob=extracted_dob,
