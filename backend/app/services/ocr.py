@@ -51,7 +51,11 @@ def extract_with_textract(image_bytes: bytes) -> Dict[str, Any]:
     return out
 
 
-def extract_fields(image_bytes: bytes, fallback: Dict[str, Optional[str]]) -> Dict[str, Any]:
+def extract_fields(
+    image_bytes: bytes,
+    fallback: Dict[str, Optional[str]],
+    demo_scenario: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Extract fields from document.
     Uses AWS Textract when enabled; otherwise falls back to local demo parser.
@@ -74,11 +78,16 @@ def extract_fields(image_bytes: bytes, fallback: Dict[str, Optional[str]]) -> Di
                 "mode": "LOCAL_FALLBACK",
                 "warning": f"AWS Textract fallback engaged: {type(exc).__name__}",
             }
-            
+
+    # If tampered demo scenario is explicitly tested, printed DOB was spliced to 2007-04-14
+    target_dob = fallback.get("dob")
+    if demo_scenario in ("tampered", "edited"):
+        target_dob = "2007-04-14"
+
     # Default offline / hackathon demo mode
     return {
         "NAME": {"value": fallback.get("name"), "confidence": 0.96},
-        "DOB": {"value": fallback.get("dob"), "confidence": 0.98},
+        "DOB": {"value": target_dob, "confidence": 0.98},
         "ID_NUMBER": {"value": fallback.get("id_number"), "confidence": 0.95},
         "INSTITUTION": {"value": fallback.get("institution"), "confidence": 0.93},
         "ID_TYPE": {"value": fallback.get("id_type", "COLLEGE_ID"), "confidence": 0.97},
