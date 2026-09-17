@@ -69,10 +69,10 @@ export default function VeriForgeApp() {
   const [supabaseConnected, setSupabaseConnected] = useState<boolean>(false);
 
   // Verification Form State
-  const [name, setName] = useState('Rahul Kumar');
-  const [dob, setDob] = useState('2005-03-14');
-  const [idNumber, setIdNumber] = useState('ABC20261023');
-  const [institution, setInstitution] = useState('ABC Institute of Technology');
+  const [name, setName] = useState('');
+  const [dob, setDob] = useState('');
+  const [idNumber, setIdNumber] = useState('');
+  const [institution, setInstitution] = useState('');
   const [idType, setIdType] = useState('COLLEGE_ID');
   const [minAge, setMinAge] = useState(18);
   const [eventDate, setEventDate] = useState('2026-09-18');
@@ -81,7 +81,6 @@ export default function VeriForgeApp() {
   const [documentPreview, setDocumentPreview] = useState<string | null>(null);
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
-  const [demoScenario, setDemoScenario] = useState<string>('');
 
   // Execution & Results State
   const [isVerifying, setIsVerifying] = useState(false);
@@ -142,72 +141,11 @@ export default function VeriForgeApp() {
     }
   };
 
-  // Preset demo loaders for instant one-click testing
-  const loadPreset = async (preset: 'valid' | 'edited' | 'blurry' | 'underage' | 'duplicate') => {
-    setErrorMsg(null);
-    setDemoScenario(preset);
-
-    let fileName = `${preset}_id.jpg`;
-    if (preset === 'duplicate') {
-      fileName = 'valid_id.jpg';
-    }
-
-    // Configure form fields corresponding to the scenario
-    if (preset === 'valid') {
-      setName('Rahul Kumar');
-      setDob('2005-03-14');
-      setIdNumber('ABC20261023');
-      setInstitution('ABC Institute of Technology');
-      setIdType('COLLEGE_ID');
-      setMinAge(18);
-    } else if (preset === 'edited') {
-      setName('Rohan Sharma');
-      setDob('2007-04-14');
-      setIdNumber('ABC20261023');
-      setInstitution('ABC Institute of Technology');
-      setIdType('COLLEGE_ID');
-      setMinAge(18);
-    } else if (preset === 'blurry') {
-      setName('Rahul Kumar');
-      setDob('2005-03-14');
-      setIdNumber('BLUR2026007');
-      setInstitution('ABC Institute of Technology');
-      setIdType('COLLEGE_ID');
-      setMinAge(18);
-    } else if (preset === 'underage') {
-      setName('Aarav Gupta');
-      setDob('2011-08-20');
-      setIdNumber('SCH20269941');
-      setInstitution('Delhi Public School');
-      setIdType('STUDENT_ID');
-      setMinAge(18);
-    } else if (preset === 'duplicate') {
-      setName('Impostor Sharma');
-      setDob('2005-03-14');
-      setIdNumber('ABC20261023'); // Same ID number as Rahul Kumar!
-      setInstitution('ABC Institute of Technology');
-      setIdType('COLLEGE_ID');
-      setMinAge(18);
-    }
-
-    try {
-      const resp = await fetch(`${API_BASE}/api/demo-assets/${fileName}`);
-      if (!resp.ok) throw new Error('Could not fetch preset demo asset');
-      const blob = await resp.blob();
-      const file = new File([blob], fileName, { type: 'image/jpeg' });
-      setDocumentFile(file);
-      setDocumentPreview(URL.createObjectURL(file));
-    } catch (e: any) {
-      setErrorMsg(`Failed to load preset asset: ${e.message}`);
-    }
-  };
-
   const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setDocumentFile(file);
       setDocumentPreview(URL.createObjectURL(file));
-      setDemoScenario('');
     }
   };
 
@@ -240,9 +178,6 @@ export default function VeriForgeApp() {
     formData.append('file', documentFile);
     if (selfieFile) {
       formData.append('selfie', selfieFile);
-    }
-    if (demoScenario) {
-      formData.append('demo_scenario', demoScenario);
     }
 
     try {
@@ -322,14 +257,14 @@ export default function VeriForgeApp() {
     }
   };
 
-  const resetDemoDatabase = async () => {
-    if (!confirm('Are you sure you want to reset the verification records?')) return;
+  const clearRecords = async () => {
+    if (!confirm('Are you sure you want to clear all verification records?')) return;
     try {
       await fetch(`${API_BASE}/api/reset`, { method: 'POST' });
       setResult(null);
       loadRegistrations();
     } catch (err) {
-      console.error('Reset failed:', err);
+      console.error('Clear records failed:', err);
     }
   };
 
@@ -467,58 +402,6 @@ export default function VeriForgeApp() {
         {/* TAB 1: VERIFICATION LAB */}
         {activeTab === 'verify' && (
           <div className="space-y-6">
-            {/* Quick Demo Test Presets Banner */}
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-slate-900 to-slate-900 border border-indigo-900/40 shadow-sm">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    1-Click Judge Demo Scenarios (AI Build Challenge PS-003)
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Instantly load verified synthetic cases to evaluate detection of fakes, blur, underage applicants, and duplicate reuse.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => loadPreset('valid')}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all flex items-center gap-1.5"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" /> 🟢 Genuine ID (Approve)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => loadPreset('edited')}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 border border-rose-500/30 transition-all flex items-center gap-1.5"
-                  >
-                    <XCircle className="w-3.5 h-3.5" /> 🔴 Tampered ID (QR Mismatch)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => loadPreset('blurry')}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 transition-all flex items-center gap-1.5"
-                  >
-                    <AlertTriangle className="w-3.5 h-3.5" /> 🟡 Blurry ID (Manual Review)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => loadPreset('underage')}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 border border-rose-500/30 transition-all flex items-center gap-1.5"
-                  >
-                    <XCircle className="w-3.5 h-3.5" /> 🔴 Underage (Age &lt; 18)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => loadPreset('duplicate')}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-500/15 text-purple-300 hover:bg-purple-500/25 border border-purple-500/30 transition-all flex items-center gap-1.5"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" /> ⚠️ Reused ID (Duplicate)
-                  </button>
-                </div>
-              </div>
-            </div>
-
             {/* 2-Column Grid: Submission Form & Verification Results */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Left Column: Form (5 Cols) */}
@@ -1022,10 +905,10 @@ export default function VeriForgeApp() {
                     Refresh
                   </button>
                   <button
-                    onClick={resetDemoDatabase}
+                    onClick={clearRecords}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 transition-colors"
                   >
-                    Reset Demo DB
+                    Clear Records
                   </button>
                 </div>
               </div>

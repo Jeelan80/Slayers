@@ -47,10 +47,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files if demo directory exists
-demo_dir = Path(settings.DEMO_ASSETS_DIR)
-demo_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/static/demos", StaticFiles(directory=str(demo_dir)), name="demos")
+
 
 
 def parse_date(value: Optional[str]) -> Optional[date]:
@@ -123,14 +120,6 @@ def reset_database():
     return {"status": "reset", "message": "Demo database cleared successfully"}
 
 
-@app.get("/api/demo-assets/{asset_name}")
-def get_demo_asset(asset_name: str):
-    file_path = demo_dir / asset_name
-    if not file_path.exists() or not file_path.is_file():
-        raise HTTPException(status_code=404, detail="Demo asset not found")
-    return FileResponse(file_path)
-
-
 @app.post("/api/verify")
 async def verify_registration(
     name: str = Form(...),
@@ -142,7 +131,6 @@ async def verify_registration(
     event_date: str = Form(""),
     file: UploadFile = File(...),
     selfie: Optional[UploadFile] = File(None),
-    demo_scenario: str = Form(""),
 ):
     image_bytes = await file.read()
     if not image_bytes:
@@ -153,10 +141,9 @@ async def verify_registration(
     except Exception:
         return JSONResponse({"error": "Unsupported image format or corrupt file"}, status_code=400)
 
-    event_dt = parse_date(event_date) or date(2026, 9, 18)
+    event_dt = parse_date(event_date) or date.today()
     supplied_dob = parse_date(dob)
 
-    # Demo scenario pre-sets for immediate hackathon judge testing
     fallback = {
         "name": name,
         "dob": dob,
@@ -164,38 +151,6 @@ async def verify_registration(
         "institution": institution,
         "id_type": id_type,
     }
-    if demo_scenario == "valid":
-        fallback = {
-            "name": "Rahul Kumar",
-            "dob": "2005-03-14",
-            "id_number": "ABC20261023",
-            "institution": "ABC Institute of Technology",
-            "id_type": "COLLEGE_ID",
-        }
-    elif demo_scenario == "edited":
-        fallback = {
-            "name": "Rohan Sharma",
-            "dob": "2007-04-14",
-            "id_number": "ABC20261023",
-            "institution": "ABC Institute of Technology",
-            "id_type": "COLLEGE_ID",
-        }
-    elif demo_scenario == "blurry":
-        fallback = {
-            "name": "Rahul Kumar",
-            "dob": "2005-03-14",
-            "id_number": "BLUR2026007",
-            "institution": "ABC Institute of Technology",
-            "id_type": "COLLEGE_ID",
-        }
-    elif demo_scenario == "underage":
-        fallback = {
-            "name": "Aarav Gupta",
-            "dob": "2011-08-20",
-            "id_number": "SCH20269941",
-            "institution": "Delhi Public School",
-            "id_type": "STUDENT_ID",
-        }
 
     # Step 1: OCR Extraction (AWS Textract or fallback)
     ocr = extract_fields(image_bytes, fallback)
