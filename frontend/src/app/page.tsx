@@ -823,7 +823,7 @@ export default function VeriForgeApp() {
                     </div>
                     <h3 className="text-base font-bold text-white mb-1">Awaiting Participant Submission</h3>
                     <p className="text-xs text-slate-400 max-w-sm mb-6">
-                      Select one of the 1-Click Judge Scenarios above or upload an ID card to run the multi-gate verification pipeline.
+                      Upload an ID document card and optional participant selfie to run the multi-gate verification pipeline.
                     </p>
                     <div className="grid grid-cols-2 gap-3 max-w-md w-full text-left">
                       <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80">
