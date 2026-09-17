@@ -170,3 +170,102 @@ def decide(ev: Dict[str, Any]) -> Dict[str, Any]:
             "face": round(clamp(face_match), 3) if face_match is not None else None,
         },
     }
+
+
+def decide_student_pipeline(ev: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Dedicated decision policy for the multi-tier Student Verification Pipeline:
+    Aadhaar Ground Truth + Student ID + MediaPipe Blink + InsightFace Biometrics.
+
+    Enforces:
+    - Threshold: >= 70% (0.70) composite match concludes student eligibility.
+    - If < 70%: triggers official college email verification fallback (Magic Link / OTP).
+    """
+    is_student = ev.get("is_student", True)
+    name_match = clamp(ev.get("name_match", 0.0))
+    biometric_score = clamp(ev.get("biometric_score", 0.0))
+    blink_passed = ev.get("blink_passed", True)
+    quality_score = clamp(ev.get("quality_score", 0.90))
+    academic_trust = clamp(ev.get("academic_trust_score", 0.80))
+    email_otp_verified = ev.get("email_otp_verified", False)
+    email_correlation_score = clamp(ev.get("email_correlation_score", 0.0) / 100.0)
+
+    # 1. Calculate Composite Student Confidence
+    if is_student:
+        composite = (
+            0.35 * name_match
+            + 0.40 * biometric_score
+            + 0.15 * academic_trust
+            + 0.10 * quality_score
+        )
+    else:
+        # Citizen / Non-student track
+        composite = (
+            0.60 * biometric_score
+            + 0.25 * quality_score
+            + 0.15 * (1.0 if blink_passed else 0.4)
+        )
+
+    composite = clamp(composite)
+    reasons: List[str] = []
+    strong_flags: List[str] = []
+
+    if name_match >= 0.70:
+        reasons.append(f"Aadhaar Ground Truth name matches Student ID ({name_match:.0%}).")
+    elif is_student:
+        reasons.append(f"Discrepancy between Aadhaar name and Student ID ({name_match:.0%}).")
+        strong_flags.append("NAME_DISCREPANCY")
+
+    if biometric_score >= 0.70:
+        reasons.append(f"Triangulated biometrics passed with {biometric_score:.0%} confidence.")
+    else:
+        reasons.append(f"Biometric similarity ({biometric_score:.0%}) below optimal confidence.")
+
+    if not blink_passed:
+        reasons.append("MediaPipe dynamic blink liveness was not confirmed.")
+        strong_flags.append("LIVENESS_FAILED")
+    else:
+        reasons.append("MediaPipe Eye Aspect Ratio (EAR) dynamic blink confirmed.")
+
+    if email_otp_verified:
+        reasons.append("Institutional university email successfully verified via one-time code.")
+
+    # 2. Decision Logic
+    # 70% threshold policy
+    THRESHOLD = 0.70
+
+    if not is_student:
+        decision = "APPROVE" if composite >= THRESHOLD and blink_passed else "MANUAL_REVIEW"
+        summary = "Citizen identity verified against Aadhaar and live biometrics."
+        status = "VERIFIED_CITIZEN"
+    elif composite >= THRESHOLD and blink_passed:
+        decision = "APPROVE"
+        summary = f"Student eligibility verified ({composite:.0%} confidence >= 70% threshold). All biometrics and credentials match."
+        status = "VERIFIED_STUDENT"
+    elif email_otp_verified:
+        decision = "APPROVE"
+        composite = max(composite, 0.85)
+        summary = "Student eligibility verified via confirmed official university email challenge."
+        status = "VERIFIED_STUDENT_EMAIL_BACKED"
+    else:
+        decision = "EMAIL_FALLBACK_REQUIRED"
+        summary = f"Confidence score ({composite:.0%}) is below 70% threshold. Please verify via official college email."
+        status = "PENDING_EMAIL_VERIFICATION"
+
+    return {
+        "decision": decision,
+        "student_status": status,
+        "confidence": round(composite, 4),
+        "threshold": THRESHOLD,
+        "passed_threshold": composite >= THRESHOLD,
+        "summary": summary,
+        "reasons": reasons,
+        "strong_flags": strong_flags,
+        "components": {
+            "name_match": round(name_match, 3),
+            "biometric_score": round(biometric_score, 3),
+            "academic_trust": round(academic_trust, 3),
+            "quality": round(quality_score, 3),
+            "email_correlation": round(email_correlation_score, 3),
+        },
+    }

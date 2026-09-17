@@ -261,3 +261,99 @@ def verify_student_enrollment(
         "remarks": f"Roll number {roll_number} could not be matched with institution '{institution}' in NAD registry.",
         "record": None,
     }
+
+
+def verify_college_email(
+    email: Optional[str],
+    usn_candidates: Optional[list] = None,
+    student_name: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Correlates official student email with USN / Register Number and College domain:
+      - Validates if domain is an institutional domain (.edu, .ac.in, .edu.in, etc.)
+      - Checks if email username prefix matches the student's USN/Roll number
+      - Checks if email contains student name tokens
+    """
+    if not email or "@" not in email:
+        return None
+
+    email = email.strip().lower()
+    prefix, domain = email.split("@", 1)
+
+    institutional_tlds = [".edu", ".ac.in", ".edu.in", ".res.in", ".ernet.in", ".org.in"]
+    is_institutional = any(domain.endswith(tld) for tld in institutional_tlds)
+
+    cleaned_candidates = []
+    if usn_candidates:
+        for cand in usn_candidates:
+            if cand:
+                c_clean = re.sub(r"[^a-zA-Z0-9]", "", str(cand)).lower()
+                if len(c_clean) >= 3:
+                    cleaned_candidates.append(c_clean)
+
+    prefix_clean = re.sub(r"[^a-zA-Z0-9]", "", prefix)
+
+    matched_usn = None
+    usn_match_type = None
+    match_score = 0.0
+
+    for cand in cleaned_candidates:
+        if prefix_clean == cand:
+            matched_usn = cand
+            usn_match_type = "EXACT_USN_PREFIX_MATCH"
+            match_score = 100.0
+            break
+        elif cand in prefix_clean:
+            matched_usn = cand
+            usn_match_type = "SUBSTRING_USN_IN_EMAIL"
+            match_score = 90.0
+            break
+        elif prefix_clean in cand and len(prefix_clean) >= 4:
+            matched_usn = cand
+            usn_match_type = "PARTIAL_USN_PREFIX"
+            match_score = 75.0
+            break
+
+    name_in_email = False
+    matched_name_part = None
+    if student_name and not matched_usn:
+        name_parts = [p.lower() for p in re.findall(r"[a-zA-Z]+", student_name) if len(p) >= 3]
+        for part in name_parts:
+            if part in prefix_clean:
+                name_in_email = True
+                matched_name_part = part
+                match_score = max(match_score, 70.0)
+                break
+
+    # STRICT ANTI-IMPOSTOR SECURITY POLICY:
+    # A valid college email MUST:
+    # 1. Belong to an authoritative institutional domain (.edu, .ac.in, etc.)
+    # 2. Correlate directly with either the decoded USN / Register Number from the card OR the verified student name.
+    # An applicant cannot provide an arbitrary institutional email belonging to another student or an old alumni account.
+    is_verified = is_institutional and ((matched_usn is not None) or name_in_email)
+    impostor_suspected = is_institutional and not is_verified
+
+    rejection_reason = None
+    if not is_institutional:
+        rejection_reason = f"Domain '{domain}' is not a recognized institutional or collegiate domain (.edu, .ac.in, .edu.in)."
+    elif impostor_suspected:
+        detected_hint = f" (expected register number e.g. {cleaned_candidates[0].upper()})" if cleaned_candidates else ""
+        rejection_reason = (
+            f"Impostor Mismatch: Email prefix '{prefix}' does not correlate with any register number "
+            f"or student name found on the uploaded ID card{detected_hint}."
+        )
+
+    return {
+        "email_address": email,
+        "username_prefix": prefix,
+        "domain": domain,
+        "is_institutional_domain": is_institutional,
+        "usn_matched": matched_usn,
+        "usn_match_type": usn_match_type,
+        "name_found_in_email": name_in_email,
+        "matched_name_part": matched_name_part,
+        "email_correlation_score": match_score if is_verified else 0.0,
+        "is_email_verified_to_student": is_verified,
+        "impostor_suspected": impostor_suspected,
+        "rejection_reason": rejection_reason,
+    }

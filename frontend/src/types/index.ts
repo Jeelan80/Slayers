@@ -117,3 +117,88 @@ export interface PresetScenario {
     customQrData?: string;
   };
 }
+
+export interface AadhaarGroundTruth {
+  name?: string;
+  dob?: string;
+  dob_iso?: string;
+  gender?: string;
+  careof?: string;
+  district?: string;
+  state?: string;
+  pincode?: string;
+  aadhaar_last_4?: string;
+  mobile_last_4?: string;
+}
+
+export interface AadhaarExtractionResponse {
+  success: boolean;
+  qr_detected: boolean;
+  qr_type: string;
+  has_embedded_photo: boolean;
+  photo_base64?: string;
+  signature_verification?: {
+    verified: boolean;
+    status: string;
+    message?: string;
+  };
+  ground_truth: AadhaarGroundTruth;
+  error?: string;
+}
+
+export interface StudentCardExtractionResponse {
+  success: boolean;
+  extracted_fields: {
+    name?: string;
+    dob?: string;
+    id_number?: string;
+    institution?: string;
+    email?: string;
+    course?: string;
+    validity?: string;
+    gender?: string;
+  };
+  ocr_confidence: number;
+  barcodes_and_qrs: Array<{ type: string; data: string }>;
+  usn_candidates: string[];
+  potential_register_numbers?: string[];
+  has_cropped_face: boolean;
+  cropped_face_base64?: string;
+  aadhaar_ground_truth_comparison?: {
+    name_similarity_score: number;
+    name_match: boolean;
+    dob_match: boolean;
+    gender_match: boolean;
+    overall_identity_verified: boolean;
+  };
+  ocr_mode?: string;
+}
+
+export interface BiometricTriangulationResponse {
+  biometric_pass: boolean;
+  composite_score: number;
+  blink_liveness_verified: boolean;
+  pairwise_scores: {
+    selfie_vs_card?: number | null;
+    selfie_vs_aadhaar?: number | null;
+    card_vs_aadhaar?: number | null;
+  };
+  pairwise_modes?: Record<string, string>;
+  card_cropped_photo_base64?: string;
+  has_aadhaar_biometric: boolean;
+}
+
+export interface FullPipelineResponse {
+  registration_id?: number;
+  decision: DecisionType | 'EMAIL_FALLBACK_REQUIRED';
+  student_status: 'VERIFIED_STUDENT' | 'VERIFIED_STUDENT_EMAIL_BACKED' | 'VERIFIED_CITIZEN' | 'PENDING_EMAIL_VERIFICATION' | 'MANUAL_REVIEW';
+  confidence: number;
+  threshold: number;
+  passed_threshold: boolean;
+  summary: string;
+  reasons: string[];
+  components: Record<string, number>;
+  aadhaar?: AadhaarExtractionResponse;
+  student_card?: StudentCardExtractionResponse;
+  biometrics?: BiometricTriangulationResponse;
+}

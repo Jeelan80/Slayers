@@ -14,7 +14,7 @@ class Settings(BaseModel):
     ID_HASH_SECRET: str = os.getenv("ID_HASH_SECRET", "veriforge-secret-key-ps003-bengaluru")
     
     # AWS configuration for Textract & Rekognition
-    AWS_TEXTRACT_ENABLED: bool = os.getenv("AWS_TEXTRACT_ENABLED", "false").lower() == "true"
+    AWS_TEXTRACT_ENABLED: bool = os.getenv("AWS_TEXTRACT_ENABLED", "true").lower() == "true"
     AWS_REKOGNITION_ENABLED: bool = os.getenv("AWS_REKOGNITION_ENABLED", "false").lower() == "true"
     AWS_REGION: str = os.getenv("AWS_REGION", "ap-south-1")
     AWS_ACCESS_KEY_ID: str | None = os.getenv("AWS_ACCESS_KEY_ID")
