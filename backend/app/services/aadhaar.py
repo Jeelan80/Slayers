@@ -21,13 +21,19 @@ import sys
 from typing import Any, Dict, Optional, Tuple, Union
 
 import cv2
-import fitz  # PyMuPDF
 import numpy as np
 from PIL import Image
 from pyzbar.pyzbar import decode as zbar_decode
 
-from pyaadhaar.decode import AadhaarOldQr, AadhaarSecureQr
-from pyaadhaar.utils import isSecureQr
+try:
+    from pyaadhaar.decode import AadhaarOldQr, AadhaarSecureQr
+    from pyaadhaar.utils import isSecureQr
+    PYAADHAAR_AVAILABLE = True
+except ImportError:
+    AadhaarOldQr = None
+    AadhaarSecureQr = None
+    isSecureQr = None
+    PYAADHAAR_AVAILABLE = False
 
 CERTS_DIR = Path(__file__).resolve().parent.parent / "certs"
 
@@ -100,6 +106,12 @@ def extract_qr_from_pdf(doc_or_path: Union[str, bytes], password: Optional[str] 
     Renders pages of a PDF document at high DPI and attempts to extract the QR payload.
     Accepts either file path or raw PDF bytes.
     """
+    try:
+        import fitz
+    except ImportError:
+        # PyMuPDF is optional; if missing, return None
+        return None
+
     if isinstance(doc_or_path, (bytes, bytearray)):
         doc = fitz.open(stream=doc_or_path, filetype="pdf")
     else:
