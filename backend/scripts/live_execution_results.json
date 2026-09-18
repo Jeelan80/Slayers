@@ -1,0 +1,125 @@
+{
+  "timestamp": "2026-09-17T19:07:41Z",
+  "base_url": "http://localhost:8000",
+  "tests": [
+    {
+      "req": "R1",
+      "name": "Health Check (GET /api/health)",
+      "status": "PASS",
+      "http_code": 200,
+      "latency_ms": 2255.71,
+      "details": {
+        "status": "ok",
+        "service": "VeriForge",
+        "version": "0.1.0",
+        "aws_textract_enabled": false,
+        "aws_rekognition_enabled": false
+      }
+    },
+    {
+      "req": "R2",
+      "name": "Test 1: Genuine Student ID (ABC20261023, Rahul Kumar)",
+      "status": "PASS",
+      "http_code": 200,
+      "latency_ms": 2374.55,
+      "decision": "APPROVE",
+      "confidence": 0.9438,
+      "dqvc_status": "CROSS_VALIDATED",
+      "academic_status": "ACTIVE"
+    },
+    {
+      "req": "R2",
+      "name": "Test 2: Tampered Text vs QR ID (Contradictory Payload)",
+      "status": "PASS",
+      "http_code": 200,
+      "latency_ms": 2463.01,
+      "decision": "REJECT",
+      "confidence": 0.3078,
+      "strong_flags": [
+        "EXACT_ID_DUPLICATE",
+        "QR_OCR_MISMATCH"
+      ],
+      "tamper_detected": true,
+      "mismatch": true
+    },
+    {
+      "req": "R2",
+      "name": "Test 3: Blurry ID Quality Gate (Laplacian Variance < 40.0)",
+      "status": "PASS",
+      "http_code": 200,
+      "latency_ms": 2397.49,
+      "decision": "MANUAL_REVIEW",
+      "quality_label": "LOW_QUALITY",
+      "blur_variance": 1.89,
+      "registration_id": 51
+    },
+    {
+      "req": "R2",
+      "name": "Test 4: Sybil / Duplicate ID Collision (Identical ID under different name)",
+      "status": "PASS",
+      "http_code": 200,
+      "latency_ms": 2337.18,
+      "decision": "REJECT",
+      "strong_flags": [
+        "EXACT_ID_DUPLICATE",
+        "QR_OCR_MISMATCH"
+      ],
+      "duplicate_status": "DUPLICATE"
+    },
+    {
+      "req": "R2",
+      "name": "Test 5A: Academic Suspension Check (SUSP2025771, Dev Sharma)",
+      "status": "PASS",
+      "http_code": 200,
+      "latency_ms": 2281.4,
+      "decision": "REJECT",
+      "academic_status": "SUSPENDED",
+      "strong_flags": [
+        "ACADEMIC_SUSPENDED"
+      ]
+    },
+    {
+      "req": "R2",
+      "name": "Test 5B: Underage Participant Eligibility (DOB 2011-08-20, Age 15 < 18)",
+      "status": "PASS",
+      "http_code": 200,
+      "latency_ms": 2432.9,
+      "decision": "REJECT",
+      "eligibility_status": "FAIL",
+      "age": 15,
+      "strong_flags": [
+        "INELIGIBLE_AGE"
+      ]
+    },
+    {
+      "req": "R3",
+      "name": "Organizer Audit: Query Submissions (GET /api/registrations)",
+      "status": "PASS",
+      "http_code": 200,
+      "latency_ms": 2058.67,
+      "count": 6,
+      "fields_validated": [
+        "checks",
+        "reasons",
+        "extracted"
+      ]
+    },
+    {
+      "req": "R3",
+      "name": "Organizer Audit: Review Override (POST /api/registrations/51/review)",
+      "status": "PASS",
+      "http_code": 200,
+      "latency_ms": 2066.66,
+      "new_status": "APPROVED",
+      "reviewer_notes": "Manual audit approval: verified physical document with institution lead."
+    },
+    {
+      "req": "R3",
+      "name": "Organizer Audit: Wipe Database (POST /api/reset)",
+      "status": "PASS",
+      "http_code": 200,
+      "latency_ms": 2052.21,
+      "post_reset_count": 0
+    }
+  ]
+}

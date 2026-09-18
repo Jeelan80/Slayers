@@ -1,0 +1,2721 @@
+{
+  "timestamp": "2026-09-17T19:10:45Z",
+  "base_url": "http://localhost:8000",
+  "total_tests": 33,
+  "passed_tests": 32,
+  "failed_tests": 1,
+  "crashes_500": 0,
+  "categories": {
+    "PREFLIGHT": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "crashes_500": 0
+    },
+    "CORRUPTED_FILES": {
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "crashes_500": 0
+    },
+    "SPLICED_DOB_VS_QR": {
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "crashes_500": 0
+    },
+    "AGE_BOUNDARIES": {
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "crashes_500": 0
+    },
+    "MALFORMED_REQUESTS": {
+      "total": 9,
+      "passed": 9,
+      "failed": 0,
+      "crashes_500": 0
+    },
+    "SYBIL_DUPLICATE": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "crashes_500": 0
+    },
+    "CONCURRENCY_BURST": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "crashes_500": 0
+    },
+    "POST_STRESS": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "crashes_500": 0
+    }
+  },
+  "details": [
+    {
+      "category": "PREFLIGHT",
+      "name": "Server Health Status",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2041.11,
+      "notes": "Server reports status='ok'",
+      "response": {
+        "status": "ok",
+        "service": "VeriForge",
+        "version": "0.1.0",
+        "aws_textract_enabled": false,
+        "aws_rekognition_enabled": false
+      }
+    },
+    {
+      "category": "CORRUPTED_FILES",
+      "name": "Zero-byte empty file",
+      "passed": true,
+      "status_code": 400,
+      "latency_ms": 2089.7,
+      "notes": "Expected 400 Bad Request, got HTTP 400: {'error': 'Uploaded document is empty'}",
+      "response": {
+        "error": "Uploaded document is empty"
+      }
+    },
+    {
+      "category": "CORRUPTED_FILES",
+      "name": "Random binary noise (512 bytes non-image)",
+      "passed": true,
+      "status_code": 400,
+      "latency_ms": 2091.1,
+      "notes": "Expected 400 Bad Request, got HTTP 400: {'error': 'Unsupported image format or corrupt file'}",
+      "response": {
+        "error": "Unsupported image format or corrupt file"
+      }
+    },
+    {
+      "category": "CORRUPTED_FILES",
+      "name": "Truncated JPEG header",
+      "passed": true,
+      "status_code": 400,
+      "latency_ms": 2046.93,
+      "notes": "Expected 400 Bad Request, got HTTP 400: {'error': 'Unsupported image format or corrupt file'}",
+      "response": {
+        "error": "Unsupported image format or corrupt file"
+      }
+    },
+    {
+      "category": "CORRUPTED_FILES",
+      "name": "Truncated PNG header",
+      "passed": true,
+      "status_code": 400,
+      "latency_ms": 2027.55,
+      "notes": "Expected 400 Bad Request, got HTTP 400: {'error': 'Unsupported image format or corrupt file'}",
+      "response": {
+        "error": "Unsupported image format or corrupt file"
+      }
+    },
+    {
+      "category": "CORRUPTED_FILES",
+      "name": "Disguised HTML document as JPEG",
+      "passed": true,
+      "status_code": 400,
+      "latency_ms": 2048.63,
+      "notes": "Expected 400 Bad Request, got HTTP 400: {'error': 'Unsupported image format or corrupt file'}",
+      "response": {
+        "error": "Unsupported image format or corrupt file"
+      }
+    },
+    {
+      "category": "CORRUPTED_FILES",
+      "name": "Valid 1x1 Blank Image (feature-less boundary)",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2159.92,
+      "notes": "Expected 200 OK + MANUAL_REVIEW/APPROVE without crash, got MANUAL_REVIEW",
+      "response": {
+        "registration_id": 80,
+        "decision": "MANUAL_REVIEW",
+        "confidence": 0.9217,
+        "summary": "Document photo is blurry/unreadable; forwarded to organizer review queue without penalty.",
+        "reasons": [
+          "Document image is low-resolution or blurry; routed to manual queue to avoid false rejection.",
+          "Date of birth meets the configured event age criteria.",
+          "Registration name matches document (100% similarity).",
+          "Document and ID number are unique across registered participants.",
+          "Active student enrollment confirmed via DigiLocker / NAD authoritative registry."
+        ],
+        "strong_flags": [],
+        "extracted": {
+          "name": "Rahul Kumar",
+          "dob": "2005-03-14",
+          "id_number": "ABC20261023",
+          "institution": "",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "PASS",
+            "age": 21,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "REVIEW",
+            "score": 0.35,
+            "blur_variance": 0.0,
+            "label": "LOW_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.0,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "NOT_FOUND",
+            "dqvc_status": "NOT_FOUND",
+            "decoded": false,
+            "mismatch": false,
+            "tamper_detected": false,
+            "consistency_score": 1.0,
+            "reason": "No machine-readable QR code found on document; falling back to OCR text verification.",
+            "fields": {},
+            "three_way_check": {
+              "ocr_qr": {
+                "match": null,
+                "score": 0.0,
+                "discrepancies": [
+                  "QR not present"
+                ]
+              },
+              "qr_registration": {
+                "match": null,
+                "score": 0.0,
+                "discrepancies": [
+                  "QR not present"
+                ]
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": []
+          },
+          "academic": {
+            "status": "ACTIVE",
+            "verified": true,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Authoritative student enrollment confirmed for Rahul Kumar at ABC Institute of Technology.",
+            "trust_score": 0.98,
+            "record": {
+              "name": "Rahul Kumar",
+              "institution": "ABC Institute of Technology",
+              "status": "ACTIVE",
+              "program": "B.Tech Computer Science & Engineering",
+              "batch": "2023-2027",
+              "semester": 5,
+              "nad_id": "NAD-IN-2023-991823",
+              "cgpa": 8.92,
+              "active_backlogs": 0,
+              "issuer": "DigiLocker / National Academic Depository"
+            }
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "UNIQUE",
+            "exact_match": null,
+            "phash_matches": []
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.35,
+            "untampered": 1.0,
+            "consistency": 1.0,
+            "uniqueness": 1.0,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "CORRUPTED_FILES",
+      "name": "Corrupted binary selfie with genuine ID",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 4115.86,
+      "notes": "Expected 200 OK without crash, got decision: APPROVE",
+      "response": {
+        "registration_id": 81,
+        "decision": "APPROVE",
+        "confidence": 0.8944,
+        "summary": "All verification signals passed. Document, academic enrollment, and identity are authentic and eligible.",
+        "reasons": [
+          "Date of birth meets the configured event age criteria.",
+          "Registration name matches document (100% similarity).",
+          "Document and ID number are unique across registered participants.",
+          "Cryptographic / machine-readable QR data is authentic and cross-validated across all checkpoints.",
+          "Active student enrollment confirmed via DigiLocker / NAD authoritative registry."
+        ],
+        "strong_flags": [],
+        "extracted": {
+          "name": "Rahul Kumar",
+          "dob": "2005-03-14",
+          "id_number": "ABC20261023",
+          "institution": "",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "PASS",
+            "age": 21,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "CROSS_VALIDATED",
+            "dqvc_status": "CROSS_VALIDATED",
+            "decoded": true,
+            "mismatch": false,
+            "tamper_detected": false,
+            "consistency_score": 1.0,
+            "reason": "Document QR verified and cross-validated across all 3 checkpoints (OCR, QR, Registration).",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              },
+              "qr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": []
+          },
+          "academic": {
+            "status": "ACTIVE",
+            "verified": true,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Authoritative student enrollment confirmed for Rahul Kumar at ABC Institute of Technology.",
+            "trust_score": 0.98,
+            "record": {
+              "name": "Rahul Kumar",
+              "institution": "ABC Institute of Technology",
+              "status": "ACTIVE",
+              "program": "B.Tech Computer Science & Engineering",
+              "batch": "2023-2027",
+              "semester": 5,
+              "nad_id": "NAD-IN-2023-991823",
+              "cgpa": 8.92,
+              "active_backlogs": 0,
+              "issuer": "DigiLocker / National Academic Depository"
+            }
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "UNIQUE",
+            "exact_match": null,
+            "phash_matches": []
+          },
+          "face": {
+            "available": true,
+            "score": 0.45,
+            "status": "REVIEW",
+            "mode": "LOCAL_DEMO",
+            "reason": "Face verification passed (simulated 45.0%; ID face: False, selfie face: False)"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.839,
+            "consistency": 1.0,
+            "uniqueness": 1.0,
+            "face": 0.45
+          }
+        }
+      }
+    },
+    {
+      "category": "SPLICED_DOB_VS_QR",
+      "name": "Form DOB altered (2000-01-01) vs Card QR (2005-03-14)",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2607.74,
+      "notes": "Decision: REJECT, QR mismatch: True, Flags: ['QR_OCR_MISMATCH']",
+      "response": {
+        "registration_id": 82,
+        "decision": "REJECT",
+        "confidence": 0.4744,
+        "summary": "Registration rejected due to policy violations, document tampering, or duplicate reuse.",
+        "reasons": [
+          "Machine-readable QR payload contradicts printed document text (probable digital forgery/splicing).",
+          "Date of birth meets the configured event age criteria.",
+          "Registration name matches document (100% similarity).",
+          "Document and ID number are unique across registered participants.",
+          "Active student enrollment confirmed via DigiLocker / NAD authoritative registry."
+        ],
+        "strong_flags": [
+          "QR_OCR_MISMATCH"
+        ],
+        "extracted": {
+          "name": "Rahul Kumar",
+          "dob": "2000-01-01",
+          "id_number": "ABC20261023",
+          "institution": "ABC Institute of Technology",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "PASS",
+            "age": 26,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "DECODED",
+            "dqvc_status": "DECODED",
+            "decoded": true,
+            "mismatch": true,
+            "tamper_detected": true,
+            "consistency_score": 0.15,
+            "reason": "Tampering detected: QR machine-readable payload directly contradicts printed text.",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": false,
+                "score": 0.2,
+                "discrepancies": [
+                  "Printed DOB '2000-01-01' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)"
+                ]
+              },
+              "qr_registration": {
+                "match": false,
+                "score": 0.3,
+                "discrepancies": [
+                  "Registration DOB '2000-01-01' contradicts card QR DOB '2005-03-14'"
+                ]
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": [
+              "Printed DOB '2000-01-01' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+              "Registration DOB '2000-01-01' contradicts card QR DOB '2005-03-14'"
+            ]
+          },
+          "academic": {
+            "status": "ACTIVE",
+            "verified": true,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Authoritative student enrollment confirmed for Rahul Kumar at ABC Institute of Technology.",
+            "trust_score": 0.98,
+            "record": {
+              "name": "Rahul Kumar",
+              "institution": "ABC Institute of Technology",
+              "status": "ACTIVE",
+              "program": "B.Tech Computer Science & Engineering",
+              "batch": "2023-2027",
+              "semester": 5,
+              "nad_id": "NAD-IN-2023-991823",
+              "cgpa": 8.92,
+              "active_backlogs": 0,
+              "issuer": "DigiLocker / National Academic Depository"
+            }
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "UNIQUE",
+            "exact_match": null,
+            "phash_matches": []
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.0,
+            "consistency": 0.15,
+            "uniqueness": 1.0,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "SPLICED_DOB_VS_QR",
+      "name": "Subtle 1-Day DOB shift (2005-03-15 vs 2005-03-14)",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2799.34,
+      "notes": "Decision: REJECT, QR mismatch: True, Discrepancies: [\"Printed DOB '2005-03-15' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)\", \"Registration DOB '2005-03-15' contradicts card QR DOB '2005-03-14'\"]",
+      "response": {
+        "registration_id": 83,
+        "decision": "REJECT",
+        "confidence": 0.4744,
+        "summary": "Registration rejected due to policy violations, document tampering, or duplicate reuse.",
+        "reasons": [
+          "Machine-readable QR payload contradicts printed document text (probable digital forgery/splicing).",
+          "Date of birth meets the configured event age criteria.",
+          "Registration name matches document (100% similarity).",
+          "Document and ID number are unique across registered participants.",
+          "Active student enrollment confirmed via DigiLocker / NAD authoritative registry."
+        ],
+        "strong_flags": [
+          "QR_OCR_MISMATCH"
+        ],
+        "extracted": {
+          "name": "Rahul Kumar",
+          "dob": "2005-03-15",
+          "id_number": "ABC20261023",
+          "institution": "ABC Institute of Technology",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "PASS",
+            "age": 21,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "DECODED",
+            "dqvc_status": "DECODED",
+            "decoded": true,
+            "mismatch": true,
+            "tamper_detected": true,
+            "consistency_score": 0.15,
+            "reason": "Tampering detected: QR machine-readable payload directly contradicts printed text.",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": false,
+                "score": 0.2,
+                "discrepancies": [
+                  "Printed DOB '2005-03-15' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)"
+                ]
+              },
+              "qr_registration": {
+                "match": false,
+                "score": 0.3,
+                "discrepancies": [
+                  "Registration DOB '2005-03-15' contradicts card QR DOB '2005-03-14'"
+                ]
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": [
+              "Printed DOB '2005-03-15' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+              "Registration DOB '2005-03-15' contradicts card QR DOB '2005-03-14'"
+            ]
+          },
+          "academic": {
+            "status": "ACTIVE",
+            "verified": true,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Authoritative student enrollment confirmed for Rahul Kumar at ABC Institute of Technology.",
+            "trust_score": 0.98,
+            "record": {
+              "name": "Rahul Kumar",
+              "institution": "ABC Institute of Technology",
+              "status": "ACTIVE",
+              "program": "B.Tech Computer Science & Engineering",
+              "batch": "2023-2027",
+              "semester": 5,
+              "nad_id": "NAD-IN-2023-991823",
+              "cgpa": 8.92,
+              "active_backlogs": 0,
+              "issuer": "DigiLocker / National Academic Depository"
+            }
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "UNIQUE",
+            "exact_match": null,
+            "phash_matches": []
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.0,
+            "consistency": 0.15,
+            "uniqueness": 1.0,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "SPLICED_DOB_VS_QR",
+      "name": "Spliced Card DOB (printed 2007-04-14 vs QR 2005-03-14)",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2837.78,
+      "notes": "Decision: REJECT, Tamper flags: ['QR_OCR_MISMATCH']",
+      "response": {
+        "registration_id": 84,
+        "decision": "REJECT",
+        "confidence": 0.4744,
+        "summary": "Registration rejected due to policy violations, document tampering, or duplicate reuse.",
+        "reasons": [
+          "Machine-readable QR payload contradicts printed document text (probable digital forgery/splicing).",
+          "Date of birth meets the configured event age criteria.",
+          "Registration name matches document (100% similarity).",
+          "Document and ID number are unique across registered participants.",
+          "Active student enrollment confirmed via DigiLocker / NAD authoritative registry."
+        ],
+        "strong_flags": [
+          "QR_OCR_MISMATCH"
+        ],
+        "extracted": {
+          "name": "Rahul Kumar",
+          "dob": "2007-04-14",
+          "id_number": "ABC20261023",
+          "institution": "ABC Institute of Technology",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "PASS",
+            "age": 19,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 4021.44,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.343,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "DECODED",
+            "dqvc_status": "DECODED",
+            "decoded": true,
+            "mismatch": true,
+            "tamper_detected": true,
+            "consistency_score": 0.15,
+            "reason": "Tampering detected: QR machine-readable payload directly contradicts printed text.",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": false,
+                "score": 0.2,
+                "discrepancies": [
+                  "Printed DOB '2007-04-14' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)"
+                ]
+              },
+              "qr_registration": {
+                "match": false,
+                "score": 0.3,
+                "discrepancies": [
+                  "Registration DOB '2007-04-14' contradicts card QR DOB '2005-03-14'"
+                ]
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": [
+              "Printed DOB '2007-04-14' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+              "Registration DOB '2007-04-14' contradicts card QR DOB '2005-03-14'"
+            ]
+          },
+          "academic": {
+            "status": "ACTIVE",
+            "verified": true,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Authoritative student enrollment confirmed for Rahul Kumar at ABC Institute of Technology.",
+            "trust_score": 0.98,
+            "record": {
+              "name": "Rahul Kumar",
+              "institution": "ABC Institute of Technology",
+              "status": "ACTIVE",
+              "program": "B.Tech Computer Science & Engineering",
+              "batch": "2023-2027",
+              "semester": 5,
+              "nad_id": "NAD-IN-2023-991823",
+              "cgpa": 8.92,
+              "active_backlogs": 0,
+              "issuer": "DigiLocker / National Academic Depository"
+            }
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "UNIQUE",
+            "exact_match": null,
+            "phash_matches": []
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.0,
+            "consistency": 0.15,
+            "uniqueness": 1.0,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "SPLICED_DOB_VS_QR",
+      "name": "Date Format Normalization (DD/MM/YYYY vs ISO)",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2757.87,
+      "notes": "Decision: APPROVE, QR mismatch: False",
+      "response": {
+        "registration_id": 85,
+        "decision": "APPROVE",
+        "confidence": 0.9437,
+        "summary": "All verification signals passed. Document, academic enrollment, and identity are authentic and eligible.",
+        "reasons": [
+          "Date of birth meets the configured event age criteria.",
+          "Registration name matches document (100% similarity).",
+          "Document and ID number are unique across registered participants.",
+          "Cryptographic / machine-readable QR data is authentic and cross-validated across all checkpoints.",
+          "Active student enrollment confirmed via DigiLocker / NAD authoritative registry."
+        ],
+        "strong_flags": [],
+        "extracted": {
+          "name": "Rahul Kumar",
+          "dob": "14/03/2005",
+          "id_number": "ABC20261023",
+          "institution": "ABC Institute of Technology",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "PASS",
+            "age": 21,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "CROSS_VALIDATED",
+            "dqvc_status": "CROSS_VALIDATED",
+            "decoded": true,
+            "mismatch": false,
+            "tamper_detected": false,
+            "consistency_score": 1.0,
+            "reason": "Document QR verified and cross-validated across all 3 checkpoints (OCR, QR, Registration).",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              },
+              "qr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": []
+          },
+          "academic": {
+            "status": "ACTIVE",
+            "verified": true,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Authoritative student enrollment confirmed for Rahul Kumar at ABC Institute of Technology.",
+            "trust_score": 0.98,
+            "record": {
+              "name": "Rahul Kumar",
+              "institution": "ABC Institute of Technology",
+              "status": "ACTIVE",
+              "program": "B.Tech Computer Science & Engineering",
+              "batch": "2023-2027",
+              "semester": 5,
+              "nad_id": "NAD-IN-2023-991823",
+              "cgpa": 8.92,
+              "active_backlogs": 0,
+              "issuer": "DigiLocker / National Academic Depository"
+            }
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "UNIQUE",
+            "exact_match": null,
+            "phash_matches": []
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.839,
+            "consistency": 1.0,
+            "uniqueness": 1.0,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "SPLICED_DOB_VS_QR",
+      "name": "Malformed unparseable DOB string ('NOT_A_VALID_DATE_99')",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 4944.89,
+      "notes": "Decision: REJECT, Flags: ['EXACT_ID_DUPLICATE', 'QR_OCR_MISMATCH', 'INELIGIBLE_AGE']",
+      "response": {
+        "registration_id": 87,
+        "decision": "REJECT",
+        "confidence": 0.3078,
+        "summary": "Registration rejected due to policy violations, document tampering, or duplicate reuse.",
+        "reasons": [
+          "ID number has already been registered in the system (Sybil reuse attempt).",
+          "Machine-readable QR payload contradicts printed document text (probable digital forgery/splicing).",
+          "Participant's date of birth does not satisfy the minimum event age requirement.",
+          "Registration name matches document (100% similarity).",
+          "Active student enrollment confirmed via DigiLocker / NAD authoritative registry."
+        ],
+        "strong_flags": [
+          "EXACT_ID_DUPLICATE",
+          "QR_OCR_MISMATCH",
+          "INELIGIBLE_AGE"
+        ],
+        "extracted": {
+          "name": "Rahul Kumar",
+          "dob": "NOT_A_VALID_DATE_99",
+          "id_number": "ABC20261023",
+          "institution": "ABC Institute of Technology",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "FAIL",
+            "age": null,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "DECODED",
+            "dqvc_status": "DECODED",
+            "decoded": true,
+            "mismatch": true,
+            "tamper_detected": true,
+            "consistency_score": 0.15,
+            "reason": "Tampering detected: QR machine-readable payload directly contradicts printed text.",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": false,
+                "score": 0.2,
+                "discrepancies": [
+                  "Printed DOB 'NOT_A_VALID_DATE_99' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)"
+                ]
+              },
+              "qr_registration": {
+                "match": false,
+                "score": 0.3,
+                "discrepancies": [
+                  "Registration DOB 'NOT_A_VALID_DATE_99' contradicts card QR DOB '2005-03-14'"
+                ]
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": [
+              "Printed DOB 'NOT_A_VALID_DATE_99' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+              "Registration DOB 'NOT_A_VALID_DATE_99' contradicts card QR DOB '2005-03-14'"
+            ]
+          },
+          "academic": {
+            "status": "ACTIVE",
+            "verified": true,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Authoritative student enrollment confirmed for Rahul Kumar at ABC Institute of Technology.",
+            "trust_score": 0.98,
+            "record": {
+              "name": "Rahul Kumar",
+              "institution": "ABC Institute of Technology",
+              "status": "ACTIVE",
+              "program": "B.Tech Computer Science & Engineering",
+              "batch": "2023-2027",
+              "semester": 5,
+              "nad_id": "NAD-IN-2023-991823",
+              "cgpa": 8.92,
+              "active_backlogs": 0,
+              "issuer": "DigiLocker / National Academic Depository"
+            }
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "DUPLICATE",
+            "exact_match": {
+              "registration_id": 85,
+              "name": "Rahul Kumar",
+              "created_at": "2026-09-17 19:11:18"
+            },
+            "phash_matches": [
+              {
+                "registration_id": 86,
+                "name": "Rahul Kumar",
+                "distance": 0
+              }
+            ]
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.0,
+            "consistency": 0.15,
+            "uniqueness": 0.0,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "AGE_BOUNDARIES",
+      "name": "Exact 18 years 0 days (DOB 2008-09-18, Event 2026-09-18)",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 4021.04,
+      "notes": "Eligibility status: PASS, Calculated age: 18",
+      "response": {
+        "registration_id": 88,
+        "decision": "REJECT",
+        "confidence": 0.3494,
+        "summary": "Registration rejected due to policy violations, document tampering, or duplicate reuse.",
+        "reasons": [
+          "Machine-readable QR payload contradicts printed document text (probable digital forgery/splicing).",
+          "Document image is visually nearly identical (pHash) to another registration.",
+          "Institutional registry match pending or unverified via DigiLocker.",
+          "Date of birth meets the configured event age criteria.",
+          "Registration name matches document (100% similarity)."
+        ],
+        "strong_flags": [
+          "QR_OCR_MISMATCH"
+        ],
+        "extracted": {
+          "name": "Eligible Boundary",
+          "dob": "2008-09-18",
+          "id_number": "BND2026001",
+          "institution": "",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "PASS",
+            "age": 18,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "DECODED",
+            "dqvc_status": "DECODED",
+            "decoded": true,
+            "mismatch": true,
+            "tamper_detected": true,
+            "consistency_score": 0.15,
+            "reason": "Tampering detected: QR machine-readable payload directly contradicts printed text.",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": false,
+                "score": 0.2,
+                "discrepancies": [
+                  "OCR printed Name 'Eligible Boundary' contradicts machine-readable QR Name 'Rahul Kumar'",
+                  "Printed DOB '2008-09-18' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+                  "Printed ID Number 'BND2026001' contradicts QR ID Number 'ABC20261023'"
+                ]
+              },
+              "qr_registration": {
+                "match": false,
+                "score": 0.3,
+                "discrepancies": [
+                  "Registration Name 'Eligible Boundary' does not match card QR Name 'Rahul Kumar' (23%)",
+                  "Registration DOB '2008-09-18' contradicts card QR DOB '2005-03-14'",
+                  "Registration ID Number 'BND2026001' differs from card QR ID 'ABC20261023'"
+                ]
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": [
+              "OCR printed Name 'Eligible Boundary' contradicts machine-readable QR Name 'Rahul Kumar'",
+              "Printed DOB '2008-09-18' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+              "Printed ID Number 'BND2026001' contradicts QR ID Number 'ABC20261023'",
+              "Registration Name 'Eligible Boundary' does not match card QR Name 'Rahul Kumar' (23%)",
+              "Registration DOB '2008-09-18' contradicts card QR DOB '2005-03-14'",
+              "Registration ID Number 'BND2026001' differs from card QR ID 'ABC20261023'"
+            ]
+          },
+          "academic": {
+            "status": "NOT_FOUND",
+            "verified": false,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Roll number BND2026001 could not be matched with institution '' in NAD registry.",
+            "trust_score": 0.0,
+            "record": null
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "POSSIBLE_REUSE",
+            "exact_match": null,
+            "phash_matches": [
+              {
+                "registration_id": 87,
+                "name": "Rahul Kumar",
+                "distance": 0
+              },
+              {
+                "registration_id": 86,
+                "name": "Rahul Kumar",
+                "distance": 0
+              },
+              {
+                "registration_id": 85,
+                "name": "Rahul Kumar",
+                "distance": 0
+              }
+            ]
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.0,
+            "consistency": 0.15,
+            "uniqueness": 0.25,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "AGE_BOUNDARIES",
+      "name": "Exact 17 years 364 days (DOB 2008-09-19, Event 2026-09-18)",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2305.46,
+      "notes": "Eligibility status: FAIL, Age: 17, Decision: REJECT",
+      "response": {
+        "registration_id": 89,
+        "decision": "REJECT",
+        "confidence": 0.3494,
+        "summary": "Registration rejected due to policy violations, document tampering, or duplicate reuse.",
+        "reasons": [
+          "Machine-readable QR payload contradicts printed document text (probable digital forgery/splicing).",
+          "Participant's date of birth does not satisfy the minimum event age requirement.",
+          "Document image is visually nearly identical (pHash) to another registration.",
+          "Institutional registry match pending or unverified via DigiLocker.",
+          "Registration name matches document (100% similarity)."
+        ],
+        "strong_flags": [
+          "QR_OCR_MISMATCH",
+          "INELIGIBLE_AGE"
+        ],
+        "extracted": {
+          "name": "Underage Boundary",
+          "dob": "2008-09-19",
+          "id_number": "BND2026002",
+          "institution": "",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "FAIL",
+            "age": 17,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "DECODED",
+            "dqvc_status": "DECODED",
+            "decoded": true,
+            "mismatch": true,
+            "tamper_detected": true,
+            "consistency_score": 0.15,
+            "reason": "Tampering detected: QR machine-readable payload directly contradicts printed text.",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": false,
+                "score": 0.2,
+                "discrepancies": [
+                  "OCR printed Name 'Underage Boundary' contradicts machine-readable QR Name 'Rahul Kumar'",
+                  "Printed DOB '2008-09-19' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+                  "Printed ID Number 'BND2026002' contradicts QR ID Number 'ABC20261023'"
+                ]
+              },
+              "qr_registration": {
+                "match": false,
+                "score": 0.3,
+                "discrepancies": [
+                  "Registration Name 'Underage Boundary' does not match card QR Name 'Rahul Kumar' (38%)",
+                  "Registration DOB '2008-09-19' contradicts card QR DOB '2005-03-14'",
+                  "Registration ID Number 'BND2026002' differs from card QR ID 'ABC20261023'"
+                ]
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": [
+              "OCR printed Name 'Underage Boundary' contradicts machine-readable QR Name 'Rahul Kumar'",
+              "Printed DOB '2008-09-19' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+              "Printed ID Number 'BND2026002' contradicts QR ID Number 'ABC20261023'",
+              "Registration Name 'Underage Boundary' does not match card QR Name 'Rahul Kumar' (38%)",
+              "Registration DOB '2008-09-19' contradicts card QR DOB '2005-03-14'",
+              "Registration ID Number 'BND2026002' differs from card QR ID 'ABC20261023'"
+            ]
+          },
+          "academic": {
+            "status": "NOT_FOUND",
+            "verified": false,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Roll number BND2026002 could not be matched with institution '' in NAD registry.",
+            "trust_score": 0.0,
+            "record": null
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "POSSIBLE_REUSE",
+            "exact_match": null,
+            "phash_matches": [
+              {
+                "registration_id": 88,
+                "name": "Eligible Boundary",
+                "distance": 0
+              },
+              {
+                "registration_id": 87,
+                "name": "Rahul Kumar",
+                "distance": 0
+              },
+              {
+                "registration_id": 86,
+                "name": "Rahul Kumar",
+                "distance": 0
+              }
+            ]
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.0,
+            "consistency": 0.15,
+            "uniqueness": 0.25,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "AGE_BOUNDARIES",
+      "name": "Exact 18 years 1 day (DOB 2008-09-17, Event 2026-09-18)",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2268.46,
+      "notes": "Eligibility status: PASS, Age: 18",
+      "response": {
+        "registration_id": 90,
+        "decision": "REJECT",
+        "confidence": 0.4744,
+        "summary": "Registration rejected due to policy violations, document tampering, or duplicate reuse.",
+        "reasons": [
+          "Machine-readable QR payload contradicts printed document text (probable digital forgery/splicing).",
+          "Institutional registry match pending or unverified via DigiLocker.",
+          "Date of birth meets the configured event age criteria.",
+          "Registration name matches document (100% similarity).",
+          "Document and ID number are unique across registered participants."
+        ],
+        "strong_flags": [
+          "QR_OCR_MISMATCH"
+        ],
+        "extracted": {
+          "name": "Eligible Day After",
+          "dob": "2008-09-17",
+          "id_number": "BND2026003",
+          "institution": "",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "PASS",
+            "age": 18,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "DECODED",
+            "dqvc_status": "DECODED",
+            "decoded": true,
+            "mismatch": true,
+            "tamper_detected": true,
+            "consistency_score": 0.15,
+            "reason": "Tampering detected: QR machine-readable payload directly contradicts printed text.",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": false,
+                "score": 0.2,
+                "discrepancies": [
+                  "OCR printed Name 'Eligible Day After' contradicts machine-readable QR Name 'Rahul Kumar'",
+                  "Printed DOB '2008-09-17' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+                  "Printed ID Number 'BND2026003' contradicts QR ID Number 'ABC20261023'"
+                ]
+              },
+              "qr_registration": {
+                "match": false,
+                "score": 0.3,
+                "discrepancies": [
+                  "Registration Name 'Eligible Day After' does not match card QR Name 'Rahul Kumar' (8%)",
+                  "Registration DOB '2008-09-17' contradicts card QR DOB '2005-03-14'",
+                  "Registration ID Number 'BND2026003' differs from card QR ID 'ABC20261023'"
+                ]
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": [
+              "OCR printed Name 'Eligible Day After' contradicts machine-readable QR Name 'Rahul Kumar'",
+              "Printed DOB '2008-09-17' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+              "Printed ID Number 'BND2026003' contradicts QR ID Number 'ABC20261023'",
+              "Registration Name 'Eligible Day After' does not match card QR Name 'Rahul Kumar' (8%)",
+              "Registration DOB '2008-09-17' contradicts card QR DOB '2005-03-14'",
+              "Registration ID Number 'BND2026003' differs from card QR ID 'ABC20261023'"
+            ]
+          },
+          "academic": {
+            "status": "NOT_FOUND",
+            "verified": false,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Roll number BND2026003 could not be matched with institution '' in NAD registry.",
+            "trust_score": 0.0,
+            "record": null
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "UNIQUE",
+            "exact_match": null,
+            "phash_matches": []
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.0,
+            "consistency": 0.15,
+            "uniqueness": 1.0,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "AGE_BOUNDARIES",
+      "name": "Leap Day Birthday before anniversary (DOB 2008-02-29, Event 2026-02-28)",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2283.25,
+      "notes": "Eligibility status: FAIL, Age: 17 (Must be 17)",
+      "response": {
+        "registration_id": 92,
+        "decision": "REJECT",
+        "confidence": 0.3494,
+        "summary": "Registration rejected due to policy violations, document tampering, or duplicate reuse.",
+        "reasons": [
+          "Machine-readable QR payload contradicts printed document text (probable digital forgery/splicing).",
+          "Participant's date of birth does not satisfy the minimum event age requirement.",
+          "Document image is visually nearly identical (pHash) to another registration.",
+          "Institutional registry match pending or unverified via DigiLocker.",
+          "Registration name matches document (100% similarity)."
+        ],
+        "strong_flags": [
+          "QR_OCR_MISMATCH",
+          "INELIGIBLE_AGE"
+        ],
+        "extracted": {
+          "name": "Leap Day Candidate",
+          "dob": "2008-02-29",
+          "id_number": "BND2026004",
+          "institution": "",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "FAIL",
+            "age": 17,
+            "minimum_age": 18,
+            "event_date": "2026-02-28"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "DECODED",
+            "dqvc_status": "DECODED",
+            "decoded": true,
+            "mismatch": true,
+            "tamper_detected": true,
+            "consistency_score": 0.15,
+            "reason": "Tampering detected: QR machine-readable payload directly contradicts printed text.",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": false,
+                "score": 0.2,
+                "discrepancies": [
+                  "OCR printed Name 'Leap Day Candidate' contradicts machine-readable QR Name 'Rahul Kumar'",
+                  "Printed DOB '2008-02-29' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+                  "Printed ID Number 'BND2026004' contradicts QR ID Number 'ABC20261023'"
+                ]
+              },
+              "qr_registration": {
+                "match": false,
+                "score": 0.3,
+                "discrepancies": [
+                  "Registration Name 'Leap Day Candidate' does not match card QR Name 'Rahul Kumar' (15%)",
+                  "Registration DOB '2008-02-29' contradicts card QR DOB '2005-03-14'",
+                  "Registration ID Number 'BND2026004' differs from card QR ID 'ABC20261023'"
+                ]
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": [
+              "OCR printed Name 'Leap Day Candidate' contradicts machine-readable QR Name 'Rahul Kumar'",
+              "Printed DOB '2008-02-29' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+              "Printed ID Number 'BND2026004' contradicts QR ID Number 'ABC20261023'",
+              "Registration Name 'Leap Day Candidate' does not match card QR Name 'Rahul Kumar' (15%)",
+              "Registration DOB '2008-02-29' contradicts card QR DOB '2005-03-14'",
+              "Registration ID Number 'BND2026004' differs from card QR ID 'ABC20261023'"
+            ]
+          },
+          "academic": {
+            "status": "NOT_FOUND",
+            "verified": false,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Roll number BND2026004 could not be matched with institution '' in NAD registry.",
+            "trust_score": 0.0,
+            "record": null
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "POSSIBLE_REUSE",
+            "exact_match": null,
+            "phash_matches": [
+              {
+                "registration_id": 91,
+                "name": "Student 0",
+                "distance": 0
+              },
+              {
+                "registration_id": 90,
+                "name": "Eligible Day After",
+                "distance": 0
+              }
+            ]
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.0,
+            "consistency": 0.15,
+            "uniqueness": 0.25,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "AGE_BOUNDARIES",
+      "name": "Leap Day Birthday on March 1 (DOB 2008-02-29, Event 2026-03-01)",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2394.25,
+      "notes": "Eligibility status: PASS, Age: 18 (Must be 18)",
+      "response": {
+        "registration_id": 94,
+        "decision": "REJECT",
+        "confidence": 0.3494,
+        "summary": "Registration rejected due to policy violations, document tampering, or duplicate reuse.",
+        "reasons": [
+          "Machine-readable QR payload contradicts printed document text (probable digital forgery/splicing).",
+          "Document image is visually nearly identical (pHash) to another registration.",
+          "Institutional registry match pending or unverified via DigiLocker.",
+          "Date of birth meets the configured event age criteria.",
+          "Registration name matches document (100% similarity)."
+        ],
+        "strong_flags": [
+          "QR_OCR_MISMATCH"
+        ],
+        "extracted": {
+          "name": "Leap Day Candidate",
+          "dob": "2008-02-29",
+          "id_number": "BND2026005",
+          "institution": "",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "PASS",
+            "age": 18,
+            "minimum_age": 18,
+            "event_date": "2026-03-01"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "DECODED",
+            "dqvc_status": "DECODED",
+            "decoded": true,
+            "mismatch": true,
+            "tamper_detected": true,
+            "consistency_score": 0.15,
+            "reason": "Tampering detected: QR machine-readable payload directly contradicts printed text.",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": false,
+                "score": 0.2,
+                "discrepancies": [
+                  "OCR printed Name 'Leap Day Candidate' contradicts machine-readable QR Name 'Rahul Kumar'",
+                  "Printed DOB '2008-02-29' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+                  "Printed ID Number 'BND2026005' contradicts QR ID Number 'ABC20261023'"
+                ]
+              },
+              "qr_registration": {
+                "match": false,
+                "score": 0.3,
+                "discrepancies": [
+                  "Registration Name 'Leap Day Candidate' does not match card QR Name 'Rahul Kumar' (15%)",
+                  "Registration DOB '2008-02-29' contradicts card QR DOB '2005-03-14'",
+                  "Registration ID Number 'BND2026005' differs from card QR ID 'ABC20261023'"
+                ]
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": [
+              "OCR printed Name 'Leap Day Candidate' contradicts machine-readable QR Name 'Rahul Kumar'",
+              "Printed DOB '2008-02-29' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+              "Printed ID Number 'BND2026005' contradicts QR ID Number 'ABC20261023'",
+              "Registration Name 'Leap Day Candidate' does not match card QR Name 'Rahul Kumar' (15%)",
+              "Registration DOB '2008-02-29' contradicts card QR DOB '2005-03-14'",
+              "Registration ID Number 'BND2026005' differs from card QR ID 'ABC20261023'"
+            ]
+          },
+          "academic": {
+            "status": "NOT_FOUND",
+            "verified": false,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Roll number BND2026005 could not be matched with institution '' in NAD registry.",
+            "trust_score": 0.0,
+            "record": null
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "POSSIBLE_REUSE",
+            "exact_match": null,
+            "phash_matches": [
+              {
+                "registration_id": 93,
+                "name": "Student 1",
+                "distance": 0
+              },
+              {
+                "registration_id": 92,
+                "name": "Leap Day Candidate",
+                "distance": 0
+              },
+              {
+                "registration_id": 91,
+                "name": "Student 0",
+                "distance": 0
+              }
+            ]
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.0,
+            "consistency": 0.15,
+            "uniqueness": 0.25,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "AGE_BOUNDARIES",
+      "name": "Future Date of Birth (DOB 2030-01-01, negative age)",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2566.3,
+      "notes": "Eligibility status: FAIL, Age: -4, Decision: REJECT",
+      "response": {
+        "registration_id": 96,
+        "decision": "REJECT",
+        "confidence": 0.3494,
+        "summary": "Registration rejected due to policy violations, document tampering, or duplicate reuse.",
+        "reasons": [
+          "Machine-readable QR payload contradicts printed document text (probable digital forgery/splicing).",
+          "Participant's date of birth does not satisfy the minimum event age requirement.",
+          "Document image is visually nearly identical (pHash) to another registration.",
+          "Institutional registry match pending or unverified via DigiLocker.",
+          "Registration name matches document (100% similarity)."
+        ],
+        "strong_flags": [
+          "QR_OCR_MISMATCH",
+          "INELIGIBLE_AGE"
+        ],
+        "extracted": {
+          "name": "Time Traveler",
+          "dob": "2030-01-01",
+          "id_number": "BND2026006",
+          "institution": "",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "FAIL",
+            "age": -4,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "DECODED",
+            "dqvc_status": "DECODED",
+            "decoded": true,
+            "mismatch": true,
+            "tamper_detected": true,
+            "consistency_score": 0.15,
+            "reason": "Tampering detected: QR machine-readable payload directly contradicts printed text.",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": false,
+                "score": 0.2,
+                "discrepancies": [
+                  "OCR printed Name 'Time Traveler' contradicts machine-readable QR Name 'Rahul Kumar'",
+                  "Printed DOB '2030-01-01' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+                  "Printed ID Number 'BND2026006' contradicts QR ID Number 'ABC20261023'"
+                ]
+              },
+              "qr_registration": {
+                "match": false,
+                "score": 0.3,
+                "discrepancies": [
+                  "Registration Name 'Time Traveler' does not match card QR Name 'Rahul Kumar' (36%)",
+                  "Registration DOB '2030-01-01' contradicts card QR DOB '2005-03-14'",
+                  "Registration ID Number 'BND2026006' differs from card QR ID 'ABC20261023'"
+                ]
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": [
+              "OCR printed Name 'Time Traveler' contradicts machine-readable QR Name 'Rahul Kumar'",
+              "Printed DOB '2030-01-01' contradicts authentic QR DOB '2005-03-14' (likely digital splicing)",
+              "Printed ID Number 'BND2026006' contradicts QR ID Number 'ABC20261023'",
+              "Registration Name 'Time Traveler' does not match card QR Name 'Rahul Kumar' (36%)",
+              "Registration DOB '2030-01-01' contradicts card QR DOB '2005-03-14'",
+              "Registration ID Number 'BND2026006' differs from card QR ID 'ABC20261023'"
+            ]
+          },
+          "academic": {
+            "status": "NOT_FOUND",
+            "verified": false,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Roll number BND2026006 could not be matched with institution '' in NAD registry.",
+            "trust_score": 0.0,
+            "record": null
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "POSSIBLE_REUSE",
+            "exact_match": null,
+            "phash_matches": [
+              {
+                "registration_id": 95,
+                "name": "Student 2",
+                "distance": 0
+              },
+              {
+                "registration_id": 94,
+                "name": "Leap Day Candidate",
+                "distance": 0
+              },
+              {
+                "registration_id": 93,
+                "name": "Student 1",
+                "distance": 0
+              }
+            ]
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.0,
+            "consistency": 0.15,
+            "uniqueness": 0.25,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "AGE_BOUNDARIES",
+      "name": "Corrupted Event Date string ('CORRUPTED_DATE_FORMAT')",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2778.98,
+      "notes": "Expected graceful fallback without 500 error, got HTTP 200, Decision: APPROVE",
+      "response": {
+        "registration_id": 98,
+        "decision": "APPROVE",
+        "confidence": 0.8187,
+        "summary": "All verification signals passed. Document, academic enrollment, and identity are authentic and eligible.",
+        "reasons": [
+          "Document image is visually nearly identical (pHash) to another registration.",
+          "Date of birth meets the configured event age criteria.",
+          "Registration name matches document (100% similarity).",
+          "Cryptographic / machine-readable QR data is authentic and cross-validated across all checkpoints.",
+          "Active student enrollment confirmed via DigiLocker / NAD authoritative registry."
+        ],
+        "strong_flags": [],
+        "extracted": {
+          "name": "Rahul Kumar",
+          "dob": "2005-03-14",
+          "id_number": "ABC20261023",
+          "institution": "ABC Institute of Technology",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "PASS",
+            "age": 21,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "CROSS_VALIDATED",
+            "dqvc_status": "CROSS_VALIDATED",
+            "decoded": true,
+            "mismatch": false,
+            "tamper_detected": false,
+            "consistency_score": 1.0,
+            "reason": "Document QR verified and cross-validated across all 3 checkpoints (OCR, QR, Registration).",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              },
+              "qr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": []
+          },
+          "academic": {
+            "status": "ACTIVE",
+            "verified": true,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Authoritative student enrollment confirmed for Rahul Kumar at ABC Institute of Technology.",
+            "trust_score": 0.98,
+            "record": {
+              "name": "Rahul Kumar",
+              "institution": "ABC Institute of Technology",
+              "status": "ACTIVE",
+              "program": "B.Tech Computer Science & Engineering",
+              "batch": "2023-2027",
+              "semester": 5,
+              "nad_id": "NAD-IN-2023-991823",
+              "cgpa": 8.92,
+              "active_backlogs": 0,
+              "issuer": "DigiLocker / National Academic Depository"
+            }
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "POSSIBLE_REUSE",
+            "exact_match": null,
+            "phash_matches": [
+              {
+                "registration_id": 97,
+                "name": "Student 3",
+                "distance": 0
+              },
+              {
+                "registration_id": 96,
+                "name": "Time Traveler",
+                "distance": 0
+              },
+              {
+                "registration_id": 95,
+                "name": "Student 2",
+                "distance": 0
+              }
+            ]
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.839,
+            "consistency": 1.0,
+            "uniqueness": 0.25,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "MALFORMED_REQUESTS",
+      "name": "Minimal valid request (all optional fields omitted)",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2421.99,
+      "notes": "Expected 200 OK with default values applied, got HTTP 200, Decision: REJECT",
+      "response": {
+        "registration_id": 100,
+        "decision": "REJECT",
+        "confidence": 0.3506,
+        "summary": "Registration rejected due to policy violations, document tampering, or duplicate reuse.",
+        "reasons": [
+          "Machine-readable QR payload contradicts printed document text (probable digital forgery/splicing).",
+          "Document image is visually nearly identical (pHash) to another registration.",
+          "Institutional registry match pending or unverified via DigiLocker.",
+          "Date of birth meets the configured event age criteria.",
+          "Registration name matches document (100% similarity)."
+        ],
+        "strong_flags": [
+          "QR_OCR_MISMATCH"
+        ],
+        "extracted": {
+          "name": "Minimal User",
+          "dob": "2005-03-14",
+          "id_number": "",
+          "institution": "",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.97,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "PASS",
+            "age": 21,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "DECODED",
+            "dqvc_status": "DECODED",
+            "decoded": true,
+            "mismatch": true,
+            "tamper_detected": true,
+            "consistency_score": 0.15,
+            "reason": "Tampering detected: QR machine-readable payload directly contradicts printed text.",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": false,
+                "score": 0.2,
+                "discrepancies": [
+                  "OCR printed Name 'Minimal User' contradicts machine-readable QR Name 'Rahul Kumar'"
+                ]
+              },
+              "qr_registration": {
+                "match": false,
+                "score": 0.3,
+                "discrepancies": [
+                  "Registration Name 'Minimal User' does not match card QR Name 'Rahul Kumar' (29%)"
+                ]
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": [
+              "OCR printed Name 'Minimal User' contradicts machine-readable QR Name 'Rahul Kumar'",
+              "Registration Name 'Minimal User' does not match card QR Name 'Rahul Kumar' (29%)"
+            ]
+          },
+          "academic": {
+            "status": "NOT_FOUND",
+            "verified": false,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Incomplete academic credentials provided (missing roll number or student name).",
+            "trust_score": 0.0,
+            "record": null
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "POSSIBLE_REUSE",
+            "exact_match": null,
+            "phash_matches": [
+              {
+                "registration_id": 99,
+                "name": "Student 4",
+                "distance": 0
+              },
+              {
+                "registration_id": 98,
+                "name": "Rahul Kumar",
+                "distance": 0
+              },
+              {
+                "registration_id": 97,
+                "name": "Student 3",
+                "distance": 0
+              }
+            ]
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.97,
+            "quality": 0.95,
+            "untampered": 0.0,
+            "consistency": 0.15,
+            "uniqueness": 0.25,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "MALFORMED_REQUESTS",
+      "name": "Missing required 'name' form parameter",
+      "passed": true,
+      "status_code": 422,
+      "latency_ms": 2180.36,
+      "notes": "Expected 422 Unprocessable Entity, got HTTP 422",
+      "response": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "name"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "category": "MALFORMED_REQUESTS",
+      "name": "Missing required 'dob' form parameter",
+      "passed": true,
+      "status_code": 422,
+      "latency_ms": 2036.07,
+      "notes": "Expected 422 Unprocessable Entity, got HTTP 422",
+      "response": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "dob"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "category": "MALFORMED_REQUESTS",
+      "name": "Missing required 'file' upload",
+      "passed": true,
+      "status_code": 422,
+      "latency_ms": 2079.03,
+      "notes": "Expected 422 Unprocessable Entity, got HTTP 422",
+      "response": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "file"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "category": "MALFORMED_REQUESTS",
+      "name": "Empty payload with multipart/form-data header",
+      "passed": true,
+      "status_code": 422,
+      "latency_ms": 2299.7,
+      "notes": "Expected 400/422, got HTTP 422",
+      "response": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "name"
+            ],
+            "msg": "Field required",
+            "input": null
+          },
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "dob"
+            ],
+            "msg": "Field required",
+            "input": null
+          },
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "file"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "category": "MALFORMED_REQUESTS",
+      "name": "Truncated multipart stream (missing closing boundary)",
+      "passed": true,
+      "status_code": 422,
+      "latency_ms": 2352.58,
+      "notes": "Expected 400/422, got HTTP 422",
+      "response": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "file"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "category": "MALFORMED_REQUESTS",
+      "name": "Malformed Content-Type header (missing boundary param)",
+      "passed": true,
+      "status_code": 400,
+      "latency_ms": 2038.79,
+      "notes": "Expected 400/422, got HTTP 400",
+      "response": {
+        "detail": "Missing boundary in multipart."
+      }
+    },
+    {
+      "category": "MALFORMED_REQUESTS",
+      "name": "JSON payload posted to multipart endpoint",
+      "passed": true,
+      "status_code": 422,
+      "latency_ms": 2132.65,
+      "notes": "Expected 422 Unprocessable Entity, got HTTP 422",
+      "response": {
+        "detail": [
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "name"
+            ],
+            "msg": "Field required",
+            "input": null
+          },
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "dob"
+            ],
+            "msg": "Field required",
+            "input": null
+          },
+          {
+            "type": "missing",
+            "loc": [
+              "body",
+              "file"
+            ],
+            "msg": "Field required",
+            "input": null
+          }
+        ]
+      }
+    },
+    {
+      "category": "MALFORMED_REQUESTS",
+      "name": "SQLi / XSS / Unicode injection in form fields",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 4128.28,
+      "notes": "Expected 200 OK without DB injection error, got HTTP 200, ID: 111",
+      "response": {
+        "registration_id": 111,
+        "decision": "REJECT",
+        "confidence": 0.3494,
+        "summary": "Registration rejected due to policy violations, document tampering, or duplicate reuse.",
+        "reasons": [
+          "Machine-readable QR payload contradicts printed document text (probable digital forgery/splicing).",
+          "Document image is visually nearly identical (pHash) to another registration.",
+          "Date of birth meets the configured event age criteria.",
+          "Registration name matches document (100% similarity).",
+          "Active student enrollment confirmed via DigiLocker / NAD authoritative registry."
+        ],
+        "strong_flags": [
+          "QR_OCR_MISMATCH"
+        ],
+        "extracted": {
+          "name": "Rahul'; DROP TABLE registrations; -- \ud83d\ude80 <script>alert(1)</script>",
+          "dob": "2005-03-14",
+          "id_number": "ABC20261023' UNION SELECT * FROM registrations --",
+          "institution": "ABC Institute of Technology <img src=x onerror=alert(1)>",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "PASS",
+            "age": 21,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "DECODED",
+            "dqvc_status": "DECODED",
+            "decoded": true,
+            "mismatch": true,
+            "tamper_detected": true,
+            "consistency_score": 0.15,
+            "reason": "Tampering detected: QR machine-readable payload directly contradicts printed text.",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": false,
+                "score": 0.2,
+                "discrepancies": [
+                  "OCR printed Name 'Rahul'; DROP TABLE registrations; -- \ud83d\ude80 <script>alert(1)</script>' contradicts machine-readable QR Name 'Rahul Kumar'",
+                  "Printed ID Number 'ABC20261023' UNION SELECT * FROM registrations --' contradicts QR ID Number 'ABC20261023'"
+                ]
+              },
+              "qr_registration": {
+                "match": false,
+                "score": 0.3,
+                "discrepancies": [
+                  "Registration Name 'Rahul'; DROP TABLE registrations; -- \ud83d\ude80 <script>alert(1)</script>' does not match card QR Name 'Rahul Kumar' (25%)",
+                  "Registration ID Number 'ABC20261023' UNION SELECT * FROM registrations --' differs from card QR ID 'ABC20261023'"
+                ]
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": [
+              "OCR printed Name 'Rahul'; DROP TABLE registrations; -- \ud83d\ude80 <script>alert(1)</script>' contradicts machine-readable QR Name 'Rahul Kumar'",
+              "Printed ID Number 'ABC20261023' UNION SELECT * FROM registrations --' contradicts QR ID Number 'ABC20261023'",
+              "Registration Name 'Rahul'; DROP TABLE registrations; -- \ud83d\ude80 <script>alert(1)</script>' does not match card QR Name 'Rahul Kumar' (25%)",
+              "Registration ID Number 'ABC20261023' UNION SELECT * FROM registrations --' differs from card QR ID 'ABC20261023'"
+            ]
+          },
+          "academic": {
+            "status": "ACTIVE",
+            "verified": true,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Active student enrollment verified via DigiLocker / NAD directory for ABC Institute of Technology <img src=x onerror=alert(1)>.",
+            "trust_score": 0.95,
+            "record": {
+              "name": "Rahul'; DROP TABLE registrations; -- \ud83d\ude80 <script>alert(1)</script>",
+              "institution": "ABC Institute of Technology <img src=x onerror=alert(1)>",
+              "status": "ACTIVE",
+              "program": "Undergraduate Degree Program",
+              "batch": "2023-2027",
+              "semester": 5,
+              "nad_id": "NAD-IN-SIM-ABC20261",
+              "cgpa": 8.45,
+              "active_backlogs": 0,
+              "issuer": "National Academic Depository (NAD)"
+            }
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "POSSIBLE_REUSE",
+            "exact_match": null,
+            "phash_matches": [
+              {
+                "registration_id": 110,
+                "name": "Concurrent User 4",
+                "distance": 0
+              },
+              {
+                "registration_id": 109,
+                "name": "Concurrent User 2",
+                "distance": 0
+              },
+              {
+                "registration_id": 108,
+                "name": "Concurrent User 1",
+                "distance": 0
+              }
+            ]
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.0,
+            "consistency": 0.15,
+            "uniqueness": 0.25,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "SYBIL_DUPLICATE",
+      "name": "Identical card registered under different name",
+      "passed": false,
+      "status_code": 200,
+      "latency_ms": 2766.09,
+      "notes": "Decision: REJECT, Flags: ['QR_OCR_MISMATCH']",
+      "response": {
+        "registration_id": 112,
+        "decision": "REJECT",
+        "confidence": 0.4744,
+        "summary": "Registration rejected due to policy violations, document tampering, or duplicate reuse.",
+        "reasons": [
+          "Machine-readable QR payload contradicts printed document text (probable digital forgery/splicing).",
+          "Institutional registry match pending or unverified via DigiLocker.",
+          "Date of birth meets the configured event age criteria.",
+          "Registration name matches document (100% similarity).",
+          "Document and ID number are unique across registered participants."
+        ],
+        "strong_flags": [
+          "QR_OCR_MISMATCH"
+        ],
+        "extracted": {
+          "name": "Impostor Sybil",
+          "dob": "2005-03-14",
+          "id_number": "ABC20261023",
+          "institution": "ABC Institute of Technology",
+          "id_type": "COLLEGE_ID",
+          "ocr_mode": "LOCAL_DEMO"
+        },
+        "checks": {
+          "ocr": {
+            "status": "PASS",
+            "confidence": 0.963,
+            "mode": "LOCAL_DEMO"
+          },
+          "eligibility": {
+            "status": "PASS",
+            "age": 21,
+            "minimum_age": 18,
+            "event_date": "2026-09-18"
+          },
+          "quality": {
+            "status": "PASS",
+            "score": 0.95,
+            "blur_variance": 3958.3,
+            "label": "GOOD_QUALITY"
+          },
+          "ela": {
+            "status": "PASS",
+            "score": 0.321,
+            "label": "LOW_ANOMALY"
+          },
+          "qr": {
+            "status": "DECODED",
+            "dqvc_status": "DECODED",
+            "decoded": true,
+            "mismatch": true,
+            "tamper_detected": true,
+            "consistency_score": 0.15,
+            "reason": "Tampering detected: QR machine-readable payload directly contradicts printed text.",
+            "fields": {
+              "NAME": "Rahul Kumar",
+              "DOB": "2005-03-14",
+              "ID_NUMBER": "ABC20261023",
+              "INSTITUTION": "ABC Institute of Technology"
+            },
+            "three_way_check": {
+              "ocr_qr": {
+                "match": false,
+                "score": 0.2,
+                "discrepancies": [
+                  "OCR printed Name 'Impostor Sybil' contradicts machine-readable QR Name 'Rahul Kumar'"
+                ]
+              },
+              "qr_registration": {
+                "match": false,
+                "score": 0.3,
+                "discrepancies": [
+                  "Registration Name 'Impostor Sybil' does not match card QR Name 'Rahul Kumar' (17%)"
+                ]
+              },
+              "ocr_registration": {
+                "match": true,
+                "score": 1.0,
+                "discrepancies": []
+              }
+            },
+            "discrepancies": [
+              "OCR printed Name 'Impostor Sybil' contradicts machine-readable QR Name 'Rahul Kumar'",
+              "Registration Name 'Impostor Sybil' does not match card QR Name 'Rahul Kumar' (17%)"
+            ]
+          },
+          "academic": {
+            "status": "NOT_FOUND",
+            "verified": false,
+            "provider": "DigiLocker / NAD Academic Federation API",
+            "remarks": "Roll number ABC20261023 exists in NAD registry, but belongs to a different student (Rahul Kumar). Impostor risk flagged.",
+            "trust_score": 0.0,
+            "record": null
+          },
+          "name_match": {
+            "status": "MATCH",
+            "score": 1.0
+          },
+          "duplicate": {
+            "status": "UNIQUE",
+            "exact_match": null,
+            "phash_matches": []
+          },
+          "face": {
+            "available": false,
+            "status": "NOT_PROVIDED"
+          },
+          "fusion_components": {
+            "ocr": 0.963,
+            "quality": 0.95,
+            "untampered": 0.0,
+            "consistency": 0.15,
+            "uniqueness": 1.0,
+            "face": null
+          }
+        }
+      }
+    },
+    {
+      "category": "CONCURRENCY_BURST",
+      "name": "Rapid burst of 15 requests in sequence",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 3086.12,
+      "notes": "Completed 15/15 successful requests, 500 crashes: 0, avg latency: 3086.1ms",
+      "response": {
+        "burst_passes": 15,
+        "burst_500s": 0
+      }
+    },
+    {
+      "category": "POST_STRESS",
+      "name": "Post-Stress Health Verification",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2175.06,
+      "notes": "Server healthy post-burst: status='ok'",
+      "response": {
+        "status": "ok",
+        "service": "VeriForge",
+        "version": "0.1.0",
+        "aws_textract_enabled": false,
+        "aws_rekognition_enabled": false
+      }
+    },
+    {
+      "category": "POST_STRESS",
+      "name": "Post-Stress Database Query (GET /api/registrations)",
+      "passed": true,
+      "status_code": 200,
+      "latency_ms": 2044.75,
+      "notes": "Retrieved 0 records without database corruption",
+      "response": {
+        "record_count": 0
+      }
+    }
+  ]
+}
