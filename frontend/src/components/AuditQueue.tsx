@@ -11,6 +11,8 @@ import {
   X,
   RefreshCw,
   Inbox,
+  Clock,
+  Filter as FilterIcon,
 } from 'lucide-react';
 import type { Registration } from '@/types';
 import { fetchRegistrations, reviewRegistration } from '@/utils/api';
@@ -41,20 +43,20 @@ function decisionBadge(decision: Registration['decision']) {
   switch (decision) {
     case 'APPROVE':
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Approve
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 text-[11px] font-bold uppercase tracking-wide">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Approved
         </span>
       );
     case 'MANUAL_REVIEW':
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Review
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 text-[11px] font-bold uppercase tracking-wide">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Needs Review
         </span>
       );
     case 'REJECT':
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide">
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Reject
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-3 py-1 text-[11px] font-bold uppercase tracking-wide">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Rejected
         </span>
       );
   }
@@ -62,12 +64,12 @@ function decisionBadge(decision: Registration['decision']) {
 
 function reviewStatusPill(status: Registration['review_status']) {
   const map = {
-    PENDING: 'bg-gray-100 text-gray-600',
-    APPROVED: 'bg-emerald-100 text-emerald-700',
-    REJECTED: 'bg-rose-100 text-rose-700',
+    PENDING: 'bg-amber-100/80 text-amber-800 border-amber-200',
+    APPROVED: 'bg-emerald-100/80 text-emerald-800 border-emerald-200',
+    REJECTED: 'bg-rose-100/80 text-rose-800 border-rose-200',
   } as const;
   return (
-    <span className={`text-[10px] font-semibold uppercase tracking-wider rounded-full px-2 py-0.5 ${map[status]}`}>
+    <span className={`text-[10px] font-bold uppercase tracking-wider rounded-md px-2 py-0.5 border ${map[status] || 'bg-slate-100 text-slate-700'}`}>
       {status}
     </span>
   );
@@ -84,7 +86,7 @@ export default function AuditQueue({ onNotify, refreshKey }: Props) {
   const load = async () => {
     try {
       const data = await fetchRegistrations();
-      setRegs(data);
+      setRegs(Array.isArray(data) ? data : []);
       setLastUpdated(new Date());
     } catch (e) {
       onNotify('error', e instanceof Error ? e.message : 'Failed to load queue');
@@ -120,7 +122,7 @@ export default function AuditQueue({ onNotify, refreshKey }: Props) {
       if (filter === 'PENDING' && r.review_status !== 'PENDING') return false;
       if (filter === 'APPROVED' && r.review_status !== 'APPROVED') return false;
       if (filter === 'REJECTED' && r.review_status !== 'REJECTED') return false;
-      if (q && !r.name.toLowerCase().includes(q)) return false;
+      if (q && !r.name?.toLowerCase().includes(q)) return false;
       return true;
     });
   }, [regs, filter, query]);
@@ -129,37 +131,40 @@ export default function AuditQueue({ onNotify, refreshKey }: Props) {
     setPendingId(id);
     try {
       await reviewRegistration(id, action);
-      onNotify('success', `Registration #${id} ${action.toLowerCase()}d.`);
+      onNotify('success', `Registration #${id} marked as ${action.toLowerCase()}d.`);
       await load();
     } catch (e) {
-      onNotify('error', e instanceof Error ? e.message : 'Review failed');
+      onNotify('error', e instanceof Error ? e.message : 'Review action failed');
     } finally {
       setPendingId(null);
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Total" value={stats.total} icon={Users} tone="neutral" />
-        <StatCard label="Approved" value={stats.approve} icon={CheckCircle2} tone="ok" />
-        <StatCard label="Manual Review" value={stats.review} icon={AlertTriangle} tone="warn" />
-        <StatCard label="Rejected" value={stats.reject} icon={XCircle} tone="bad" />
+    <div className="space-y-6 fade-up">
+      {/* Top Stat Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="Total Submissions" value={stats.total} icon={Users} tone="neutral" />
+        <StatCard label="AI Approved" value={stats.approve} icon={CheckCircle2} tone="ok" />
+        <StatCard label="Pending Review" value={stats.review} icon={AlertTriangle} tone="warn" />
+        <StatCard label="Rejected Entries" value={stats.reject} icon={XCircle} tone="bad" />
       </div>
 
-      {/* Controls */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* Filter and Search Bar */}
+      <div className="bg-white rounded-3xl border border-[#e2e8f0] shadow-sm p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs font-bold uppercase text-[#94a3b8] px-2 flex items-center gap-1">
+            <FilterIcon className="w-3 h-3" /> Filter:
+          </span>
           {FILTERS.map((f) => (
             <button
               key={f}
               type="button"
               onClick={() => setFilter(f)}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wide border transition-colors ${
+              className={`rounded-xl px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider border transition-all ${
                 filter === f
-                  ? 'bg-[#009E7E] text-white border-[#009E7E]'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-[#009E7E] hover:text-[#009E7E]'
+                  ? 'bg-[#009E7E] text-white border-[#009E7E] shadow-sm'
+                  : 'bg-[#f8fafc] text-[#64748b] border-[#e2e8f0] hover:border-[#009E7E] hover:text-[#009E7E]'
               }`}
             >
               {f}
@@ -167,14 +172,14 @@ export default function AuditQueue({ onNotify, refreshKey }: Props) {
           ))}
         </div>
         <div className="flex-1" />
-        <div className="relative flex-1 max-w-xs">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <div className="relative flex-1 max-w-sm">
+          <Search className="w-4 h-4 text-[#94a3b8] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name…"
-            className="w-full bg-[#f7f9fc] border border-[#e5e9f0] focus:border-[#009E7E] focus:ring-2 focus:ring-[#009E7E]/20 rounded-full pl-9 pr-3 py-2 text-sm outline-none"
+            placeholder="Search participant by name…"
+            className="w-full bg-[#f8fafc] border border-[#e2e8f0] focus:border-[#009E7E] focus:ring-2 focus:ring-[#009E7E]/15 rounded-xl pl-9 pr-3 py-2 text-xs font-medium outline-none"
           />
         </div>
         <button
@@ -183,116 +188,117 @@ export default function AuditQueue({ onNotify, refreshKey }: Props) {
             setLoading(true);
             load();
           }}
-          className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#009E7E]"
-          title="Refresh now"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-[#64748b] hover:text-[#009E7E] bg-[#f8fafc] border border-[#e2e8f0] px-3 py-2 rounded-xl transition-colors"
+          title="Refresh table"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          {lastUpdated ? `Updated ${timeAgo(lastUpdated.toISOString())}` : 'Loading…'}
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#009E7E]' : ''}`} />
+          {lastUpdated ? `${timeAgo(lastUpdated.toISOString())}` : 'Syncing…'}
         </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Registrations Table */}
+      <div className="bg-white rounded-3xl border border-[#e2e8f0] shadow-sm overflow-hidden">
         {filtered.length === 0 ? (
-          <div className="p-12 text-center">
-            <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-              <Inbox className="w-7 h-7 text-gray-400" />
+          <div className="p-16 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-[#f8fafc] border border-[#e2e8f0] flex items-center justify-center mx-auto mb-4">
+              <Inbox className="w-8 h-8 text-[#94a3b8]" />
             </div>
-            <h3 className="text-base font-semibold text-[#1a1f2e]">
-              {regs.length === 0 ? 'No registrations yet' : 'Nothing matches that filter'}
+            <h3 className="text-base font-bold text-[#0f172a]">
+              {regs.length === 0 ? 'No Verification Records Yet' : 'No Matching Records Found'}
             </h3>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-xs text-[#64748b] mt-1 max-w-sm mx-auto leading-relaxed">
               {regs.length === 0
-                ? 'Run a verification to see results here.'
-                : 'Try a different filter or clear the search.'}
+                ? 'Run an identity scan from the "Verify Participant" tab or trigger a demo scenario.'
+                : 'Try adjusting your search query or switching active filter status.'}
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-left text-xs">
               <thead>
-                <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500 bg-[#f7f9fc] border-b border-gray-100">
-                  <th className="px-4 py-3 font-semibold">#</th>
-                  <th className="px-4 py-3 font-semibold">Name</th>
-                  <th className="px-4 py-3 font-semibold">Submitted</th>
-                  <th className="px-4 py-3 font-semibold">Decision</th>
-                  <th className="px-4 py-3 font-semibold">Confidence</th>
-                  <th className="px-4 py-3 font-semibold">Flags</th>
-                  <th className="px-4 py-3 font-semibold text-right">Actions</th>
+                <tr className="text-[10px] uppercase tracking-wider text-[#64748b] bg-[#f8fafc] border-b border-[#e2e8f0]">
+                  <th className="px-5 py-3.5 font-bold">ID</th>
+                  <th className="px-5 py-3.5 font-bold">Participant</th>
+                  <th className="px-5 py-3.5 font-bold">Timestamp</th>
+                  <th className="px-5 py-3.5 font-bold">AI Decision</th>
+                  <th className="px-5 py-3.5 font-bold">Confidence</th>
+                  <th className="px-5 py-3.5 font-bold">Risk Flags</th>
+                  <th className="px-5 py-3.5 font-bold text-right">Review Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-[#f1f5f9]">
                 {filtered.map((r) => {
                   const pct = Math.round(r.confidence * 100);
                   const barColor =
                     pct >= 75 ? 'bg-[#009E7E]' : pct >= 50 ? 'bg-amber-500' : 'bg-rose-500';
                   return (
-                    <tr key={r.id} className="border-b border-gray-50 last:border-b-0 hover:bg-[#f7f9fc]/70">
-                      <td className="px-4 py-3 text-gray-400 tabular-nums">#{r.id}</td>
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-[#1a1f2e]">{r.name || '—'}</div>
-                        <div className="mt-0.5">{reviewStatusPill(r.review_status)}</div>
+                    <tr key={r.id} className="hover:bg-[#f8fafc]/80 transition-colors">
+                      <td className="px-5 py-4 font-mono font-bold text-[#64748b]">#{r.id}</td>
+                      <td className="px-5 py-4">
+                        <div className="font-bold text-[#0f172a] text-sm">{r.name || 'Anonymous User'}</div>
+                        <div className="mt-1">{reviewStatusPill(r.review_status)}</div>
                       </td>
-                      <td className="px-4 py-3 text-gray-500 tabular-nums text-xs">
+                      <td className="px-5 py-4 text-[#64748b] font-medium flex items-center gap-1.5 mt-2">
+                        <Clock className="w-3 h-3 text-[#94a3b8]" />
                         {timeAgo(r.created_at)}
                       </td>
-                      <td className="px-4 py-3">{decisionBadge(r.decision)}</td>
-                      <td className="px-4 py-3 min-w-[140px]">
+                      <td className="px-5 py-4">{decisionBadge(r.decision)}</td>
+                      <td className="px-5 py-4 min-w-[150px]">
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                          <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
                             <div
-                              className={`h-full ${barColor} rounded-full`}
+                              className={`h-full ${barColor} rounded-full transition-all duration-500`}
                               style={{ width: `${pct}%` }}
                             />
                           </div>
-                          <span className="text-xs tabular-nums text-gray-600 font-semibold w-9 text-right">
+                          <span className="text-xs font-mono font-bold text-[#0f172a] w-10 text-right">
                             {pct}%
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        {r.strong_flags.length === 0 ? (
-                          <span className="text-xs text-gray-300">—</span>
+                      <td className="px-5 py-4">
+                        {(r.strong_flags ?? []).length === 0 ? (
+                          <span className="text-xs text-slate-300 font-medium">None</span>
                         ) : (
-                          <div className="flex flex-wrap gap-1 max-w-[200px]">
-                            {r.strong_flags.slice(0, 2).map((f) => (
+                          <div className="flex flex-wrap gap-1 max-w-[220px]">
+                            {(r.strong_flags ?? []).slice(0, 2).map((f) => (
                               <span
                                 key={f}
-                                className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 text-rose-700 px-2 py-0.5 text-[10px] font-semibold"
+                                className="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 text-rose-700 px-2 py-0.5 text-[9px] font-bold"
                               >
                                 {f.replace(/_/g, ' ')}
                               </span>
                             ))}
-                            {r.strong_flags.length > 2 && (
-                              <span className="text-[10px] text-gray-400 font-semibold">
-                                +{r.strong_flags.length - 2}
+                            {(r.strong_flags ?? []).length > 2 && (
+                              <span className="text-[10px] text-slate-400 font-bold">
+                                +{(r.strong_flags ?? []).length - 2}
                               </span>
                             )}
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-4 text-right">
                         {r.decision === 'MANUAL_REVIEW' && r.review_status === 'PENDING' ? (
-                          <div className="flex items-center gap-1.5 justify-end">
+                          <div className="flex items-center gap-2 justify-end">
                             <button
                               type="button"
                               disabled={pendingId === r.id}
                               onClick={() => doReview(r.id, 'APPROVE')}
-                              className="inline-flex items-center gap-1 border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-50"
+                              className="inline-flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl px-3 py-1.5 text-xs font-bold shadow-sm transition-all disabled:opacity-50"
                             >
-                              <Check className="w-3 h-3" /> Approve
+                              <Check className="w-3.5 h-3.5" /> Approve
                             </button>
                             <button
                               type="button"
                               disabled={pendingId === r.id}
                               onClick={() => doReview(r.id, 'REJECT')}
-                              className="inline-flex items-center gap-1 border border-rose-300 text-rose-700 hover:bg-rose-50 rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-50"
+                              className="inline-flex items-center gap-1 bg-rose-500 hover:bg-rose-600 text-white rounded-xl px-3 py-1.5 text-xs font-bold shadow-sm transition-all disabled:opacity-50"
                             >
-                              <X className="w-3 h-3" /> Reject
+                              <X className="w-3.5 h-3.5" /> Reject
                             </button>
                           </div>
                         ) : (
-                          <div className="text-right text-xs text-gray-400">—</div>
+                          <span className="text-xs text-slate-400 font-medium">Locked</span>
                         )}
                       </td>
                     </tr>
@@ -319,24 +325,24 @@ function StatCard({
   tone: 'neutral' | 'ok' | 'warn' | 'bad';
 }) {
   const toneMap = {
-    neutral: { text: 'text-[#1a1f2e]', bg: 'bg-[#f7f9fc]', ring: 'text-gray-500' },
-    ok:      { text: 'text-emerald-700', bg: 'bg-emerald-50', ring: 'text-emerald-500' },
-    warn:    { text: 'text-amber-700',   bg: 'bg-amber-50',   ring: 'text-amber-500' },
-    bad:     { text: 'text-rose-700',    bg: 'bg-rose-50',    ring: 'text-rose-500' },
+    neutral: { text: 'text-[#0f172a]', bg: 'bg-[#f8fafc]', border: 'border-[#e2e8f0]', icon: 'text-[#009E7E]' },
+    ok:      { text: 'text-emerald-700', bg: 'bg-emerald-50/70', border: 'border-emerald-200', icon: 'text-emerald-600' },
+    warn:    { text: 'text-amber-700',   bg: 'bg-amber-50/70',   border: 'border-amber-200',   icon: 'text-amber-600' },
+    bad:     { text: 'text-rose-700',    bg: 'bg-rose-50/70',    border: 'border-rose-200',    icon: 'text-rose-600' },
   }[tone];
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-      <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${toneMap.bg}`}>
-          <Icon className={`w-5 h-5 ${toneMap.ring}`} />
+    <div className={`rounded-3xl border p-5 shadow-sm bg-white hover:shadow-md transition-all ${toneMap.border}`}>
+      <div className="flex items-center justify-between">
+        <div className="text-[11px] uppercase tracking-wider text-[#64748b] font-bold">
+          {label}
         </div>
-        <div>
-          <div className={`text-2xl font-bold tabular-nums ${toneMap.text}`}>{value}</div>
-          <div className="text-[11px] uppercase tracking-wider text-gray-500 font-semibold">
-            {label}
-          </div>
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${toneMap.bg}`}>
+          <Icon className={`w-4 h-4 ${toneMap.icon}`} />
         </div>
+      </div>
+      <div className={`text-3xl font-black tabular-nums mt-2 tracking-tight ${toneMap.text}`}>
+        {value}
       </div>
     </div>
   );

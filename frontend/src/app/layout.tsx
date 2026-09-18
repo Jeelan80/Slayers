@@ -11,17 +11,16 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'VeriForge — AI Identity & Eligibility Verification',
   description:
-    'Hackingly VeriForge console for AI-powered participant ID verification, tamper detection, and organizer audit review.',
+    'Hackingly VeriForge: AI-powered participant ID verification, tamper detection, and organizer audit review for the AI Build Challenge.',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="min-h-screen bg-white text-[#1a1f2e]">{children}</body>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <body className="bg-mesh min-h-screen text-[#0f172a]" suppressHydrationWarning>
+        {children}
+      </body>
     </html>
   );
 }
+
