@@ -25,7 +25,7 @@ export interface VerificationChecks {
     label: string;
   };
   qr?: {
-    status: 'MATCH' | 'MISMATCH' | 'N/A';
+    status: 'MATCH' | 'MISMATCH' | 'N/A' | 'CROSS_VALIDATED' | 'DECODED' | 'DETECTED' | 'NOT_FOUND' | string;
     reason?: string;
     fields?: Record<string, string>;
   };

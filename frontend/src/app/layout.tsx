@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, Poppins } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const plusJakarta = Plus_Jakarta_Sans({
+  variable: "--font-plus-jakarta",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const poppins = Poppins({
+  variable: "--font-poppins",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "VeriForge · AI Identity & Eligibility Verification (PS-003)",
-  description: "AI-powered identity verification, document tamper screening, and eligibility engine for Hackingly PS-003.",
+  title: "Hackingly — Identity & Eligibility Verification",
+  description: "AI-Powered Identity & Eligibility Verification Platform for Hackathon Registrations.",
 };
 
 export default function RootLayout({
@@ -25,9 +27,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} dark bg-[#090d16] text-slate-100 antialiased`}
+      className={`${plusJakarta.variable} ${poppins.variable} antialiased`}
     >
-      <body className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans">
+      <body className="min-h-screen bg-white text-[#14161A] flex flex-col font-sans selection:bg-[#12805F]/15 selection:text-[#12805F]">
         {children}
       </body>
     </html>

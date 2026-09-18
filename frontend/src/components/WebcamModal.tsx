@@ -20,7 +20,6 @@ export function WebcamModal({ isOpen, onClose, onCapture }: WebcamModalProps) {
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
 
-  // Enumerate video devices
   const enumerateDevices = useCallback(async () => {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
@@ -51,15 +50,12 @@ export function WebcamModal({ isOpen, onClose, onCapture }: WebcamModalProps) {
     setLivenessPhase('align');
     setBlinkConfirmed(false);
 
-    // Stop previous tracks if any
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);
     }
 
     let mediaStream: MediaStream | null = null;
-
-    // 1. Try with ideal constraints or selected device
     try {
       const videoConstraints: MediaTrackConstraints = deviceId
         ? { deviceId: { exact: deviceId } }
@@ -70,7 +66,6 @@ export function WebcamModal({ isOpen, onClose, onCapture }: WebcamModalProps) {
         audio: false,
       });
     } catch (err1) {
-      // 2. Fallback without facingMode/resolution constraints
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({
           video: true,
@@ -90,7 +85,6 @@ export function WebcamModal({ isOpen, onClose, onCapture }: WebcamModalProps) {
     }
   }, [enumerateDevices, stream]);
 
-  // Bind stream to video element whenever stream or video element becomes available
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
@@ -114,7 +108,6 @@ export function WebcamModal({ isOpen, onClose, onCapture }: WebcamModalProps) {
     };
   }, [isOpen]);
 
-  // Simulated dynamic blink sequence for guided interactive liveness
   useEffect(() => {
     if (isOpen && !capturedUrl && livenessPhase === 'align') {
       const timer = setTimeout(() => {
@@ -153,7 +146,6 @@ export function WebcamModal({ isOpen, onClose, onCapture }: WebcamModalProps) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Mirror image for natural selfie orientation
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -187,22 +179,24 @@ export function WebcamModal({ isOpen, onClose, onCapture }: WebcamModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in-95">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in">
+      <div className="bg-white border border-[#ECECEC] rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in-95 text-[#14161A]">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-800">
+        <div className="flex items-center justify-between p-5 border-b border-[#ECECEC]">
           <div className="flex items-center gap-2.5">
-            <Camera className="h-5 w-5 text-cyan-400" />
+            <div className="w-8 h-8 rounded-full bg-[#DFF3E1] flex items-center justify-center text-[#12805F]">
+              <Camera className="w-4 h-4" />
+            </div>
             <div>
-              <h3 className="text-base font-bold text-white">MediaPipe Blink Liveness</h3>
-              <p className="text-[11px] text-slate-400">Eye Aspect Ratio (EAR) Anti-Spoofing Check</p>
+              <h3 className="text-sm font-bold text-[#14161A]">MediaPipe Dynamic Blink Liveness</h3>
+              <p className="text-[11px] text-[#9AA1AC]">Eye Aspect Ratio (EAR) Anti-Spoofing & Face Match</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-full hover:bg-slate-100 text-[#9AA1AC] hover:text-[#14161A] transition-colors"
           >
-            <X className="h-5 w-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -210,31 +204,30 @@ export function WebcamModal({ isOpen, onClose, onCapture }: WebcamModalProps) {
         <div className="p-4 flex flex-col items-center">
           {cameraError ? (
             <div className="py-12 px-4 text-center">
-              <p className="text-sm font-bold text-rose-400 mb-1">Camera Access Error</p>
-              <p className="text-xs text-slate-400 mb-4 max-w-sm">{cameraError}</p>
+              <p className="text-sm font-bold text-rose-600 mb-1">Camera Access Error</p>
+              <p className="text-xs text-[#5B6270] mb-4 max-w-sm">{cameraError}</p>
               <div className="flex items-center justify-center gap-2">
                 <button
                   type="button"
                   onClick={() => startCamera()}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold"
+                  className="py-2 px-4 rounded-full bg-slate-100 hover:bg-slate-200 text-[#14161A] text-xs font-semibold"
                 >
-                  Retry Default
+                  Retry Camera
                 </button>
                 {videoDevices.length > 1 && (
                   <button
                     type="button"
                     onClick={handleSwitchCamera}
-                    className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold flex items-center gap-1.5"
+                    className="py-2 px-4 rounded-full bg-[#12805F] hover:bg-[#0E6A4E] text-white text-xs font-semibold flex items-center gap-1.5"
                   >
-                    <SwitchCamera className="h-3.5 w-3.5" />
+                    <SwitchCamera className="w-3.5 h-3.5" />
                     <span>Switch Camera</span>
                   </button>
                 )}
               </div>
             </div>
           ) : (
-            <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black border border-slate-800 shadow-inner">
-              {/* Always keep the video element in the DOM so media tracks stay bound */}
+            <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black border border-[#ECECEC] shadow-inner">
               <video
                 ref={videoRef}
                 autoPlay
@@ -248,52 +241,50 @@ export function WebcamModal({ isOpen, onClose, onCapture }: WebcamModalProps) {
               {capturedUrl && (
                 <div className="relative w-full h-full">
                   <img src={capturedUrl} alt="Captured Selfie" className="w-full h-full object-cover" />
-                  <div className="absolute top-3 right-3 bg-emerald-950/90 border border-emerald-500/50 px-2.5 py-1 rounded-md text-[11px] font-mono text-emerald-300 flex items-center gap-1.5 shadow-lg">
-                    <ShieldCheck className="h-3.5 w-3.5" />
+                  <div className="absolute top-3 right-3 bg-white/95 border border-[#B7E4C7] px-2.5 py-1 rounded-full text-[11px] font-semibold text-[#12805F] flex items-center gap-1.5 shadow-sm">
+                    <ShieldCheck className="w-3.5 h-3.5" />
                     <span>{blinkConfirmed ? 'BLINK VERIFIED' : 'SELFIE READY'}</span>
                   </div>
                 </div>
               )}
 
-              {/* Live Overlays (Only shown when not captured) */}
+              {/* Live Overlays */}
               {!capturedUrl && (
                 <>
-                  {/* Target Face Oval Overlay */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div
                       className={`w-44 h-56 border-2 rounded-[50%] transition-all duration-300 ${
                         livenessPhase === 'success'
-                          ? 'border-emerald-400 shadow-[0_0_25px_rgba(52,211,153,0.5)]'
+                          ? 'border-[#12805F] shadow-[0_0_20px_rgba(18,128,95,0.4)]'
                           : livenessPhase === 'blink'
-                          ? 'border-cyan-400 border-dashed animate-pulse'
-                          : 'border-slate-500/80'
+                          ? 'border-[#F15A24] border-dashed animate-pulse'
+                          : 'border-white/70'
                       }`}
                     />
                   </div>
 
-                  {/* Liveness Guidance Banner */}
                   <div className="absolute top-3 inset-x-3 flex justify-center">
                     {livenessPhase === 'align' && (
-                      <div className="bg-slate-900/90 border border-slate-700 px-3.5 py-1.5 rounded-full text-xs text-slate-200 shadow-lg flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
+                      <div className="bg-white/95 border border-[#ECECEC] px-3.5 py-1.5 rounded-full text-xs text-[#14161A] shadow-sm flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-[#12805F] animate-ping" />
                         <span>Center face inside oval</span>
                       </div>
                     )}
                     {livenessPhase === 'blink' && (
-                      <div className="bg-cyan-950/90 border border-cyan-500 px-3.5 py-1.5 rounded-full text-xs text-cyan-200 shadow-lg flex items-center gap-2 animate-bounce">
-                        <Eye className="h-4 w-4 text-cyan-400" />
-                        <span className="font-semibold">Blink your eyes naturally now</span>
+                      <div className="bg-[#DFF3E1] border border-[#12805F] px-3.5 py-1.5 rounded-full text-xs text-[#12805F] shadow-sm flex items-center gap-2 font-semibold">
+                        <Eye className="w-4 h-4" />
+                        <span>Blink your eyes naturally now</span>
                       </div>
                     )}
                     {livenessPhase === 'success' && (
-                      <div className="bg-emerald-950/90 border border-emerald-500 px-3.5 py-1.5 rounded-full text-xs text-emerald-200 shadow-lg flex items-center gap-2">
-                        <Check className="h-4 w-4 text-emerald-400" />
-                        <span className="font-semibold">Blink confirmed! Ready to capture</span>
+                      <div className="bg-[#DFF3E1] border border-[#12805F] px-3.5 py-1.5 rounded-full text-xs text-[#12805F] shadow-sm flex items-center gap-2 font-semibold">
+                        <Check className="w-4 h-4" />
+                        <span>Blink confirmed! Ready to capture</span>
                       </div>
                     )}
                   </div>
 
-                  <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-0.5 rounded text-[10px] font-mono text-slate-300">
+                  <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 rounded-full text-[10px] font-mono text-white">
                     MediaPipe EAR: 0.28 (Open)
                   </div>
 
@@ -301,9 +292,9 @@ export function WebcamModal({ isOpen, onClose, onCapture }: WebcamModalProps) {
                     <button
                       type="button"
                       onClick={handleSwitchCamera}
-                      className="absolute bottom-2 right-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-slate-300 text-[10px] px-2 py-1 rounded flex items-center gap-1 shadow"
+                      className="absolute bottom-2 right-2 bg-white/90 hover:bg-white text-[#14161A] text-[10px] px-2.5 py-1 rounded-full border border-[#ECECEC] flex items-center gap-1 shadow-xs"
                     >
-                      <SwitchCamera className="h-3 w-3" />
+                      <SwitchCamera className="w-3 h-3" />
                       <span>Switch</span>
                     </button>
                   )}
@@ -314,17 +305,17 @@ export function WebcamModal({ isOpen, onClose, onCapture }: WebcamModalProps) {
         </div>
 
         {/* Actions */}
-        <div className="p-4 border-t border-slate-800 flex items-center justify-between gap-3">
-          <div className="text-xs text-slate-400 flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-            <span>Anti-spoofing active</span>
-          </div>
+        <div className="p-4 border-t border-[#ECECEC] flex items-center justify-between gap-3">
+          <span className="text-[11px] text-[#9AA1AC] flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-[#12805F]" />
+            Dynamic blink anti-spoofing
+          </span>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+              className="py-2 px-4 rounded-full border border-[#D5D8DF] text-xs font-semibold text-[#5B6270] hover:bg-slate-50 cursor-pointer"
             >
               Cancel
             </button>
@@ -334,17 +325,17 @@ export function WebcamModal({ isOpen, onClose, onCapture }: WebcamModalProps) {
                 <button
                   type="button"
                   onClick={handleRetake}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+                  className="flex items-center gap-1.5 py-2 px-3.5 rounded-full border border-[#D5D8DF] text-xs font-semibold text-[#5B6270] hover:bg-slate-50 cursor-pointer"
                 >
-                  <RefreshCw className="h-3.5 w-3.5" />
+                  <RefreshCw className="w-3.5 h-3.5" />
                   <span>Retake</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirm}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors shadow-lg shadow-emerald-600/20"
+                  className="flex items-center gap-1.5 py-2 px-5 rounded-full bg-[#12805F] hover:bg-[#0E6A4E] text-white text-xs font-semibold cursor-pointer shadow-xs"
                 >
-                  <Check className="h-3.5 w-3.5" />
+                  <Check className="w-3.5 h-3.5" />
                   <span>Confirm Photo</span>
                 </button>
               </>
@@ -354,18 +345,18 @@ export function WebcamModal({ isOpen, onClose, onCapture }: WebcamModalProps) {
                   type="button"
                   onClick={handleSimulateBlink}
                   disabled={!!cameraError}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-950 border border-cyan-700 hover:bg-cyan-900 text-cyan-300 text-xs font-semibold transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 py-2 px-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-[#14161A] cursor-pointer disabled:opacity-50"
                 >
-                  <EyeOff className="h-3.5 w-3.5" />
+                  <EyeOff className="w-3.5 h-3.5" />
                   <span>Blink Test (Auto)</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleCapture(false)}
                   disabled={!!cameraError}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition-colors shadow-lg shadow-cyan-600/20 disabled:opacity-50"
+                  className="flex items-center gap-1.5 py-2 px-5 rounded-full bg-[#12805F] hover:bg-[#0E6A4E] text-white text-xs font-semibold cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  <Camera className="h-3.5 w-3.5" />
+                  <Camera className="w-3.5 h-3.5" />
                   <span>Capture Now</span>
                 </button>
               </>

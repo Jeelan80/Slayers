@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Mail, ShieldAlert, CheckCircle2, ArrowRight, RefreshCw, KeyRound, Building, AlertCircle } from 'lucide-react';
+import { Mail, CheckCircle2, ArrowRight, RefreshCw, KeyRound, AlertCircle, X, ShieldCheck } from 'lucide-react';
 
 interface CollegeEmailFallbackModalProps {
   isOpen: boolean;
@@ -69,7 +69,6 @@ export function CollegeEmailFallbackModal({
       }
 
       setStep('enter_otp');
-      // For demo convenience, display the code
       const match = data.message?.match(/\b\d{6}\b/);
       if (match) setDemoBypassCode(match[0]);
     } catch (err: any) {
@@ -101,176 +100,178 @@ export function CollegeEmailFallbackModal({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.detail || 'Invalid verification code.');
+        throw new Error(data.detail || 'Incorrect verification code.');
       }
 
       onVerified(email.trim());
-      onClose();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Verification failed. Please retry.');
+      setErrorMsg(err.message || 'Invalid verification code.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl animate-in fade-in zoom-in-95">
-        {/* Header Alert */}
-        <div className="bg-gradient-to-r from-amber-950/60 to-slate-900 border-b border-amber-500/20 p-5">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-              <ShieldAlert className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white">College Email Challenge</h3>
-              <p className="text-xs text-amber-300/80">
-                Confidence score: {(currentConfidence * 100).toFixed(0)}% (below 70% threshold)
-              </p>
-            </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="relative w-full max-w-md bg-white rounded-3xl p-6 sm:p-8 border border-[#ECECEC] shadow-2xl text-[#14161A]">
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-5 right-5 p-1.5 text-[#9AA1AC] hover:text-[#14161A] hover:bg-slate-100 rounded-full transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* Header */}
+        <div className="mb-5">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#FBE6D3] text-[#B45309]">
+              Confidence {Math.round(currentConfidence * 100)}% &lt; 70% Threshold
+            </span>
           </div>
+          <h3 className="text-xl font-bold tracking-tight text-[#14161A]">
+            College Email Fallback Challenge
+          </h3>
+          <p className="text-xs text-[#5B6270] mt-1">
+            To conclude your student eligibility, please verify via your official university email (.edu or .ac.in).
+          </p>
         </div>
 
-        {/* Content Body */}
-        <div className="p-6 space-y-4">
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Because automated confidence is below 70%, please verify active enrollment using your
-            <strong> official college or university email address</strong> (.edu / .ac.in).
-          </p>
+        {errorMsg && (
+          <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
-          {errorMsg && (
-            <div className="p-3 rounded-xl bg-rose-950/50 border border-rose-500/30 text-xs text-rose-300 flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {step === 'enter_email' ? (
-            <form onSubmit={handleSendOtp} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
-                  <span>Official College Email</span>
-                  {email && isInstitutional(email) && (
-                    <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" />
-                      INSTITUTIONAL DOMAIN
-                    </span>
-                  )}
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="student@university.edu.in"
-                    required
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-                  />
-                </div>
-                {activeUsns.length > 0 ? (
-                  <div className="mt-2 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col gap-1">
-                    <div className="text-[11px] text-slate-400 flex items-center justify-between">
-                      <span className="font-semibold text-slate-300">ID Card Register Number(s):</span>
-                      <span className="font-mono text-cyan-400 font-bold">{activeUsns.join(', ')}</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500">
-                      Prefix must correlate with registered ID (e.g. <span className="font-mono text-slate-400">{activeUsns[0].toLowerCase()}@college.edu</span>) or student name. Arbitrary personal or alumni emails are rejected.
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Accepts official .ac.in, .edu, .edu.in institutional email addresses matching your student identity.
-                  </p>
+        {step === 'enter_email' ? (
+          <form onSubmit={handleSendOtp} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-[#5B6270] mb-1.5 flex items-center justify-between">
+                <span>Official University Email</span>
+                {email && isInstitutional(email) && (
+                  <span className="text-[10px] text-[#12805F] font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    INSTITUTIONAL DOMAIN
+                  </span>
                 )}
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9AA1AC]" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. pes2ug23cs915@pes.edu"
+                  required
+                  className="w-full pl-10 pr-4 py-2.5 text-xs bg-white border border-[#ECECEC] rounded-xl text-[#14161A] focus:outline-none focus:border-[#12805F] transition-colors"
+                />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              {activeUsns.length > 0 && (
+                <div className="mt-2.5 p-2.5 rounded-xl bg-[#FAFAFA] border border-[#ECECEC] text-[11px] text-[#5B6270]">
+                  <p className="font-semibold text-[#14161A]">
+                    Registered ID Number: <span className="text-[#12805F] font-mono">{activeUsns.join(', ')}</span>
+                  </p>
+                  <p className="text-[10px] text-[#9AA1AC] mt-0.5">
+                    Email prefix must match student ID or name to prevent impostor abuse.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="py-2.5 px-4 rounded-full border border-[#D5D8DF] text-xs font-semibold text-[#5B6270] hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading || !email}
+                className="py-2.5 px-6 rounded-full bg-[#12805F] hover:bg-[#0E6A4E] text-white text-xs font-semibold tracking-wide transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isLoading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Sending...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Send Code</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleVerifyOtp} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-[#5B6270] mb-1.5 flex items-center justify-between">
+                <span>Enter 6-Digit Verification Code</span>
+                <span className="text-[11px] text-[#12805F] font-mono">Sent to {email}</span>
+              </label>
+              <div className="relative">
+                <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9AA1AC]" />
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  placeholder="123456"
+                  required
+                  className="w-full pl-10 pr-4 py-2.5 text-sm font-mono tracking-widest text-center bg-white border border-[#ECECEC] rounded-xl text-[#14161A] focus:outline-none focus:border-[#12805F] transition-colors"
+                />
+              </div>
+
+              {demoBypassCode && (
+                <p className="text-[11px] text-[#12805F] mt-1.5 font-mono">
+                  Demo code: <strong>{demoBypassCode}</strong> (or 123456)
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={() => setStep('enter_email')}
+                className="text-xs text-[#5B6270] hover:text-[#14161A] cursor-pointer"
+              >
+                ← Change email
+              </button>
+
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                  className="py-2.5 px-4 rounded-full border border-[#D5D8DF] text-xs font-semibold text-[#5B6270] hover:bg-slate-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isLoading || !email}
-                  className="flex items-center gap-2 px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-lg shadow-cyan-600/20 disabled:opacity-50"
+                  disabled={isLoading || otp.length < 6}
+                  className="py-2.5 px-6 rounded-full bg-[#12805F] hover:bg-[#0E6A4E] text-white text-xs font-semibold tracking-wide transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {isLoading ? (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Verifying...</span>
+                    </>
                   ) : (
                     <>
-                      <span>Send Code</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Verify & Approve</span>
                     </>
                   )}
                 </button>
               </div>
-            </form>
-          ) : (
-            <form onSubmit={handleVerifyOtp} className="space-y-4 animate-in fade-in">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
-                  <span>Enter 6-Digit Code</span>
-                  <span className="text-[10px] text-cyan-400 font-mono">Sent to {email}</span>
-                </label>
-                <div className="relative">
-                  <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <input
-                    type="text"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                    placeholder="123456"
-                    required
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-800 rounded-xl text-sm font-mono tracking-widest text-center text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-                  />
-                </div>
-                {demoBypassCode && (
-                  <p className="text-[11px] text-emerald-400/90 mt-1.5 font-mono">
-                    Demo bypass code: <strong>{demoBypassCode}</strong> (or 123456)
-                  </p>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between pt-2">
-                <button
-                  type="button"
-                  onClick={() => setStep('enter_email')}
-                  className="text-xs text-slate-400 hover:text-white"
-                >
-                  ← Change email
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isLoading || otp.length < 6}
-                    className="flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/20 disabled:opacity-50"
-                  >
-                    {isLoading ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        <span>Verify & Approve</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </form>
-          )}
-        </div>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

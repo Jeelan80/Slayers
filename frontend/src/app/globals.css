@@ -1,28 +1,58 @@
 @import "tailwindcss";
 
 :root {
-  --background: #090d16;
-  --foreground: #f8fafc;
+  /* Core brand tokens from Hackingly design.md */
+  --brand-orange: #F15A24;
+  --brand-teal: #12805F;
+  --brand-teal-hover: #0E6A4E;
+
+  /* Neutrals */
+  --ink-900: #14161A;
+  --ink-600: #5B6270;
+  --ink-400: #9AA1AC;
+  --surface-0: #FFFFFF;
+  --surface-muted: #FAFAFA;
+  --border-soft: #ECECEC;
+  --ink-black: #101114;
+
+  /* Pastel illustration tokens (honeycomb motif only) */
+  --pastel-blue: #D6ECF7;
+  --pastel-green: #DFF3E1;
+  --pastel-purple: #E9E2F6;
+  --pastel-peach: #FBE6D3;
+
+  /* Radius */
+  --radius-pill: 999px;
+  --radius-card: 14px;
 }
 
 body {
-  background-color: #090d16;
-  color: #f8fafc;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background-color: #FFFFFF;
+  color: #14161A;
+  font-family: var(--font-plus-jakarta), var(--font-poppins), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar */
+/* Subtle background topographic contour lines texture */
+.hackingly-bg-grid {
+  background-color: #FFFFFF;
+  background-image: radial-gradient(#ececec 0.75px, transparent 0.75px);
+  background-size: 24px 24px;
+}
+
+/* Clean minimal scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #FAFAFA;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 4px;
+  background: #D5D8DF;
+  border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #9AA1AC;
 }
