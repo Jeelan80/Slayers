@@ -6,6 +6,8 @@ import {
   UploadCloud,
   CheckCircle2,
   AlertCircle,
+  AlertOctagon,
+  AlertTriangle,
   FileCheck,
   CreditCard,
   Camera,
@@ -15,10 +17,15 @@ import {
   Lock,
   GraduationCap,
   ShieldCheck,
+  ShieldAlert,
+  ShieldX,
   UserCheck,
+  RotateCcw,
+  ScanEye,
 } from 'lucide-react';
 import { WebcamModal } from './WebcamModal';
 import { CollegeEmailFallbackModal } from './CollegeEmailFallbackModal';
+import { TamperingAnalysisWidget } from './TamperingAnalysisWidget';
 
 interface StudentVerificationWizardProps {
   isOpen: boolean;
@@ -49,11 +56,13 @@ export function StudentVerificationWizard({
   const [groundTruth, setGroundTruth] = useState<any | null>(null);
   const [aadhaarPhotoRaw, setAadhaarPhotoRaw] = useState<string | null>(null);
 
-  // Step 2: Student Card
+  // Step 2: Student Card & Tampering Analysis
   const [studentCardFile, setStudentCardFile] = useState<File | null>(null);
   const [cardPreviewUrl, setCardPreviewUrl] = useState<string | null>(null);
   const [isExtractingCard, setIsExtractingCard] = useState(false);
   const [cardResult, setCardResult] = useState<any | null>(null);
+  const [demoScenario, setDemoScenario] = useState<string | null>(null);
+  const [isLoadingPreset, setIsLoadingPreset] = useState(false);
 
   // Step 3: Biometrics & Liveness
   const [isWebcamOpen, setIsWebcamOpen] = useState(false);
@@ -112,7 +121,29 @@ export function StudentVerificationWizard({
     }
   };
 
-  // Step 2: Extract Student ID Card
+  // Step 2: Extract Student ID Card & Execute Background Tampering Check
+  const loadCardPreset = async (presetId: 'genuine' | 'tampered') => {
+    setIsLoadingPreset(true);
+    setErrorMessage(null);
+    setCardResult(null);
+    try {
+      const filename = presetId === 'tampered' ? 'tampered_dob_id.png' : 'genuine_college_id.png';
+      setDemoScenario(presetId === 'tampered' ? 'tampered' : null);
+      const res = await fetch(`${apiUrl}/static/samples/${filename}`);
+      if (res.ok) {
+        const blob = await res.blob();
+        const file = new File([blob], filename, { type: 'image/png' });
+        setStudentCardFile(file);
+        if (cardPreviewUrl) URL.revokeObjectURL(cardPreviewUrl);
+        setCardPreviewUrl(URL.createObjectURL(file));
+      }
+    } catch (e) {
+      console.warn('Could not load sample card:', e);
+    } finally {
+      setIsLoadingPreset(false);
+    }
+  };
+
   const handleCardUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentCardFile) {
@@ -129,6 +160,9 @@ export function StudentVerificationWizard({
       if (groundTruth) {
         formData.append('ground_truth_json', JSON.stringify(groundTruth));
       }
+      if (demoScenario) {
+        formData.append('demo_scenario', demoScenario);
+      }
 
       const res = await fetch(`${apiUrl}/api/verify/student-card`, {
         method: 'POST',
@@ -141,7 +175,12 @@ export function StudentVerificationWizard({
       }
 
       setCardResult(data);
-      setCurrentStep(3);
+
+      // If document is clean (LOW risk), proceed to Step 3
+      if (data.tampering_analysis?.risk_level === 'LOW') {
+        setCurrentStep(3);
+      }
+      // If HIGH or MEDIUM risk, stay on Step 2 to call out the user and show the diagnostic breakdown
     } catch (err: any) {
       setErrorMessage(err.message || 'Error extracting fields from student ID.');
     } finally {
@@ -175,6 +214,7 @@ export function StudentVerificationWizard({
       formData.append('selfie_file', selfie);
       formData.append('blink_verified', blink.toString());
       formData.append('email_otp_verified', emailVerifiedParam.toString());
+      if (demoScenario) formData.append('demo_scenario', demoScenario);
 
       const res = await fetch(`${apiUrl}/api/verify/full-student-pipeline`, {
         method: 'POST',
@@ -342,72 +382,169 @@ export function StudentVerificationWizard({
           </form>
         )}
 
-        {/* ----------------- STEP 2: Student ID Card ----------------- */}
+        {/* ----------------- STEP 2: Student ID Card & Tampering Analysis ----------------- */}
         {currentStep === 2 && (
-          <form onSubmit={handleCardUpload} className="space-y-4">
+          <div className="space-y-4">
             <div className="p-3.5 rounded-2xl bg-[#DFF3E1] border border-[#B7E4C7] text-xs text-[#12805F] flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
               <span>Identity Ground Truth securely anchored. Now provide your student credential.</span>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-[#5B6270] mb-1.5">
-                Upload College / University Student ID Card
-              </label>
-              <input
-                type="file"
-                accept="image/*,.pdf"
-                required
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    const f = e.target.files[0];
-                    setStudentCardFile(f);
-                    if (f.type.startsWith('image/')) {
-                      setCardPreviewUrl(URL.createObjectURL(f));
+            <form onSubmit={handleCardUpload} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[#5B6270] mb-1.5">
+                  Upload College / University Student ID Card
+                </label>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  required={!studentCardFile}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      const f = e.target.files[0];
+                      setStudentCardFile(f);
+                      setDemoScenario(null);
+                      setCardResult(null);
+                      if (f.type.startsWith('image/')) {
+                        setCardPreviewUrl(URL.createObjectURL(f));
+                      }
                     }
-                  }
-                }}
-                className="w-full text-xs text-[#5B6270] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#12805F] file:text-white hover:file:bg-[#0E6A4E] file:cursor-pointer"
-              />
-            </div>
-
-            {cardPreviewUrl && (
-              <div className="flex justify-center p-2">
-                <img
-                  src={cardPreviewUrl}
-                  alt="Card Preview"
-                  className="max-h-36 rounded-xl border border-[#ECECEC] object-contain shadow-xs"
+                  }}
+                  className="w-full text-xs text-[#5B6270] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#12805F] file:text-white hover:file:bg-[#0E6A4E] file:cursor-pointer"
                 />
               </div>
-            )}
 
-            <div className="pt-2 flex justify-between items-center">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(1)}
-                className="text-xs text-[#5B6270] hover:text-[#14161A] cursor-pointer"
-              >
-                ← Back
-              </button>
-              <button
-                type="submit"
-                disabled={isExtractingCard || !studentCardFile}
-                className="py-3 px-7 rounded-full bg-[#12805F] hover:bg-[#0E6A4E] text-white text-xs sm:text-sm font-semibold transition-all shadow-xs cursor-pointer flex items-center gap-2 disabled:opacity-50"
-              >
-                {isExtractingCard ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Extracting Badge Photo & USNs...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Extract Student Credentials</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
+              {cardPreviewUrl && (
+                <div className="flex justify-center p-2">
+                  <img
+                    src={cardPreviewUrl}
+                    alt="Card Preview"
+                    className="max-h-36 rounded-xl border border-[#ECECEC] object-contain shadow-xs"
+                  />
+                </div>
+              )}
+
+              {/* 🚨 USER CALLOUT: Document Tampering Detected Alert (HIGH RISK) */}
+              {cardResult?.tampering_analysis?.risk_level === 'HIGH' && (
+                <div className="p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-900 animate-in fade-in slide-in-from-top-2 duration-300 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-rose-100 rounded-xl text-rose-700 flex-shrink-0">
+                      <AlertOctagon className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-rose-950">
+                          🚨 Document Tampering Detected!
+                        </h4>
+                        <span className="text-[10px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded-full bg-rose-200 text-rose-800">
+                          High Risk Fraud
+                        </span>
+                      </div>
+                      <p className="text-xs text-rose-800 leading-relaxed">
+                        Potential digital alteration identified on this credential. Our automated forensic scanner detected localized anomalies (e.g. Splicing Discontinuity, Compression Anomaly in DOB, or Font Inconsistency).
+                      </p>
+                      <p className="text-xs font-semibold text-rose-900">
+                        Hackingly requires an authentic, unaltered physical ID card. Progression has been blocked for integrity.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Render 8-check diagnostic widget */}
+                  <TamperingAnalysisWidget analysis={cardResult.tampering_analysis} />
+                </div>
+              )}
+
+              {/* ⚠️ USER CALLOUT: Borderline Document Integrity Alert (MEDIUM RISK) */}
+              {cardResult?.tampering_analysis?.risk_level === 'MEDIUM' && (
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 animate-in fade-in slide-in-from-top-2 duration-300 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-amber-100 rounded-xl text-amber-700 flex-shrink-0">
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-amber-950">
+                          ⚠️ Borderline Document Integrity (Risk: MEDIUM)
+                        </h4>
+                      </div>
+                      <p className="text-xs text-amber-800 leading-relaxed">
+                        Subtle forensic anomalies were detected on the card image (e.g., compression artifacts or font variation). You may proceed to live selfie capture, but mandatory official college email OTP verification will be required before final approval.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Render 8-check diagnostic widget */}
+                  <TamperingAnalysisWidget analysis={cardResult.tampering_analysis} compact />
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex justify-between items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentStep(1);
+                    setCardResult(null);
+                  }}
+                  className="text-xs text-[#5B6270] hover:text-[#14161A] cursor-pointer"
+                >
+                  ← Back
+                </button>
+
+                <div className="flex items-center gap-2">
+                  {/* If tampered, show Re-upload reset button */}
+                  {cardResult?.tampering_analysis?.risk_level === 'HIGH' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStudentCardFile(null);
+                        setCardPreviewUrl(null);
+                        setCardResult(null);
+                        setDemoScenario(null);
+                      }}
+                      className="py-2.5 px-5 rounded-full bg-slate-100 hover:bg-slate-200 text-[#334155] text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Re-upload Original ID Card</span>
+                    </button>
+                  )}
+
+                  {/* If Medium risk, let user acknowledge and proceed */}
+                  {cardResult?.tampering_analysis?.risk_level === 'MEDIUM' && (
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(3)}
+                      className="py-3 px-7 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-semibold transition-all shadow-xs cursor-pointer flex items-center gap-2"
+                    >
+                      <span>Acknowledge & Proceed to Selfie</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  {/* Primary Extract & Forensic Background Check Submit */}
+                  {(!cardResult || cardResult?.tampering_analysis?.risk_level === 'LOW') && (
+                    <button
+                      type="submit"
+                      disabled={isExtractingCard || !studentCardFile}
+                      className="py-3 px-7 rounded-full bg-[#12805F] hover:bg-[#0E6A4E] text-white text-xs sm:text-sm font-semibold transition-all shadow-xs cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {isExtractingCard ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Running 8-Check Forensic Tampering Analysis...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Extract Credentials & Tampering Check</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </form>
+          </div>
         )}
 
         {/* ----------------- STEP 3: Live Selfie & Dynamic Blink ----------------- */}
@@ -429,9 +566,20 @@ export function StudentVerificationWizard({
             {cardResult && (
               <div className="p-3.5 rounded-xl border border-[#ECECEC] bg-white text-xs flex items-center justify-between">
                 <div>
-                  <p className="font-semibold text-[#14161A]">
-                    {cardResult.extracted_fields?.name || 'Student Candidate'}
-                  </p>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className="font-semibold text-[#14161A]">
+                      {cardResult.extracted_fields?.name || 'Student Candidate'}
+                    </p>
+                    {cardResult.tampering_analysis && (
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                        cardResult.tampering_analysis.risk_level === 'LOW'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}>
+                        Forensics: {cardResult.tampering_analysis.risk_level} Risk
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-[#5B6270]">
                     {cardResult.extracted_fields?.institution || 'PES University'} · Roll No: {cardResult.extracted_fields?.id_number || 'N/A'}
                   </p>

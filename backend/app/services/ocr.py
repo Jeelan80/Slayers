@@ -185,6 +185,7 @@ def extract_student_id_card(
     card_bytes: bytes,
     fallback_data: Optional[Dict[str, Optional[str]]] = None,
     ground_truth: Optional[Dict[str, Any]] = None,
+    demo_scenario: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Comprehensive student card analyzer:
@@ -194,8 +195,10 @@ def extract_student_id_card(
     4. Runs Textract (or demo OCR) for Name, DOB, USN, Institution, Email.
     5. Discovers all potential register numbers / USNs across barcodes, OCR, and raw lines.
     6. Performs fuzzy cross-check against Aadhaar Ground Truth.
+    7. Runs 8-check Pixel & Text Document Tampering Analysis.
     """
     from thefuzz import fuzz
+    from .tampering import analyze_document_tampering
 
     # 1. Handle PDF to PNG rasterization across pages
     actual_img_bytes = card_bytes
@@ -213,7 +216,7 @@ def extract_student_id_card(
             print(f"[warn] PDF rasterization error: {e}")
 
     fallback = fallback_data or {}
-    ocr_res = extract_fields(actual_img_bytes, fallback)
+    ocr_res = extract_fields(actual_img_bytes, fallback, demo_scenario=demo_scenario)
 
     # Scan barcodes on all pages (front and back of ID card)
     barcodes = []
@@ -291,6 +294,13 @@ def extract_student_id_card(
             "overall_identity_verified": name_match,
         }
 
+    # 3. Execute 8-Check Pixel & Text Tampering Analysis
+    tampering_res = analyze_document_tampering(
+        image_bytes=actual_img_bytes,
+        ocr_res=ocr_res,
+        demo_scenario=demo_scenario,
+    )
+
     return {
         "success": True,
         "extracted_fields": {
@@ -316,5 +326,6 @@ def extract_student_id_card(
         "has_cropped_face": cropped_face_bytes is not None,
         "cropped_face_base64": cropped_face_b64,
         "aadhaar_ground_truth_comparison": gt_comparison,
+        "tampering_analysis": tampering_res,
         "ocr_mode": ocr_res.get("mode"),
     }

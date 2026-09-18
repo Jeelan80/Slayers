@@ -24,6 +24,7 @@ export interface VerificationChecks {
     score: number;
     label: string;
   };
+  tampering?: TamperingAnalysis;
   qr?: {
     status: 'MATCH' | 'MISMATCH' | 'N/A' | 'CROSS_VALIDATED' | 'DECODED' | 'DETECTED' | 'NOT_FOUND' | string;
     reason?: string;
@@ -44,6 +45,36 @@ export interface VerificationChecks {
     score?: number;
     match?: boolean;
   };
+}
+
+export interface TamperingCheckItem {
+  name: string;
+  category: 'PIXEL' | 'TEXT';
+  status: 'PASS' | 'SUSPICIOUS' | 'FLAGGED';
+  score: number;
+  display_label: string;
+  details: string;
+}
+
+export interface TamperingAnalysis {
+  risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
+  risk_score: number;
+  tamper_detected: boolean;
+  flagged_count?: number;
+  suspicious_count?: number;
+  summary: string;
+  formatted_report?: string;
+  checks: {
+    copy_move: TamperingCheckItem;
+    splicing: TamperingCheckItem;
+    compression: TamperingCheckItem;
+    noise_edge: TamperingCheckItem;
+    font_consistency: TamperingCheckItem;
+    text_alignment: TamperingCheckItem;
+    text_geometry: TamperingCheckItem;
+    ocr_confidence: TamperingCheckItem;
+  };
+  signals_list?: TamperingCheckItem[];
 }
 
 export interface ExtractedFields {
@@ -171,6 +202,7 @@ export interface StudentCardExtractionResponse {
     gender_match: boolean;
     overall_identity_verified: boolean;
   };
+  tampering_analysis?: TamperingAnalysis;
   ocr_mode?: string;
 }
 
@@ -191,13 +223,16 @@ export interface BiometricTriangulationResponse {
 export interface FullPipelineResponse {
   registration_id?: number;
   decision: DecisionType | 'EMAIL_FALLBACK_REQUIRED';
-  student_status: 'VERIFIED_STUDENT' | 'VERIFIED_STUDENT_EMAIL_BACKED' | 'VERIFIED_CITIZEN' | 'PENDING_EMAIL_VERIFICATION' | 'MANUAL_REVIEW';
+  student_status: 'VERIFIED_STUDENT' | 'VERIFIED_STUDENT_EMAIL_BACKED' | 'VERIFIED_CITIZEN' | 'PENDING_EMAIL_VERIFICATION' | 'MANUAL_REVIEW' | 'REJECTED_DOCUMENT_TAMPERED';
   confidence: number;
   threshold: number;
   passed_threshold: boolean;
   summary: string;
   reasons: string[];
+  strong_flags?: string[];
   components: Record<string, number>;
+  tampering_risk?: 'LOW' | 'MEDIUM' | 'HIGH';
+  tamper_detected?: boolean;
   aadhaar?: AadhaarExtractionResponse;
   student_card?: StudentCardExtractionResponse;
   biometrics?: BiometricTriangulationResponse;

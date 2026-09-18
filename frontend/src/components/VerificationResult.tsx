@@ -19,6 +19,7 @@ import {
   ShieldX,
 } from 'lucide-react';
 import { VerificationResponse } from '@/types';
+import { TamperingAnalysisWidget } from './TamperingAnalysisWidget';
 
 interface VerificationResultProps {
   result: VerificationResponse;
@@ -138,6 +139,13 @@ export function VerificationResult({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* Forensic Document Tampering Analysis */}
+      {checks?.tampering && (
+        <div>
+          <TamperingAnalysisWidget analysis={checks.tampering} />
         </div>
       )}
 

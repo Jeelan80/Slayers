@@ -25,8 +25,10 @@ def decide(ev: Dict[str, Any]) -> Dict[str, Any]:
     ocr_conf = clamp(ev.get("ocr_confidence", 0.85))
     quality = clamp(ev.get("quality_score", 0.90))
     
-    # Tamper score (from ELA and QR contradiction)
-    tamper = clamp(ev.get("tamper_score", 0.0))
+    # Tamper score (from ELA, QR contradiction, and 8-check tampering suite)
+    tamper = clamp(max(ev.get("tamper_score", 0.0), ev.get("tampering_score", 0.0)))
+    if ev.get("tampering_risk") == "HIGH":
+        tamper = max(tamper, 0.85)
     untampered = 1.0 - tamper
     
     # Cross-validation consistency (3-way check)
@@ -75,6 +77,10 @@ def decide(ev: Dict[str, Any]) -> Dict[str, Any]:
         strong_flags.append("QR_OCR_MISMATCH")
         reasons.append("Machine-readable QR payload contradicts printed document text (probable digital forgery/splicing).")
 
+    if ev.get("tampering_risk") == "HIGH" and "DOCUMENT_TAMPERING_DETECTED" not in strong_flags:
+        strong_flags.append("DOCUMENT_TAMPERING_DETECTED")
+        reasons.append("Forensic analysis detected document tampering (pixel or text anomalies).")
+
     if not ev.get("eligibility_pass", True):
         strong_flags.append("INELIGIBLE_AGE")
         reasons.append("Participant's date of birth does not satisfy the minimum event age requirement.")
@@ -101,6 +107,9 @@ def decide(ev: Dict[str, Any]) -> Dict[str, Any]:
 
     if ev.get("ela_flag") and not (ev.get("qr_mismatch") or ev.get("tamper_detected")):
         reasons.append("Forensic Error Level Analysis detected localized digital compression anomalies.")
+
+    if ev.get("tampering_risk") == "MEDIUM":
+        reasons.append("Document forensic scanner detected subtle typography or compression anomalies (Risk: MEDIUM).")
 
     if ev.get("phash_possible_reuse") and not ev.get("exact_duplicate"):
         reasons.append("Document image is visually nearly identical (pHash) to another registration.")
@@ -131,11 +140,10 @@ def decide(ev: Dict[str, Any]) -> Dict[str, Any]:
         reasons.append(f"Biometric face match confirmed with {face_match:.0%} confidence.")
 
     # 4. Final 3-Way Decision Policy Execution
-    # Hard Rejections: Strict policy violations, document tampering, or exact duplicate ID
-    # Note: Blurry documents MUST NOT be rejected for fraud; they route to MANUAL_REVIEW.
     has_hard_fraud = (
         ev.get("qr_mismatch")
         or ev.get("tamper_detected")
+        or ev.get("tampering_risk") == "HIGH"
         or ev.get("exact_duplicate")
         or not ev.get("eligibility_pass", True)
         or ev.get("academic_status") == "SUSPENDED"
@@ -145,10 +153,12 @@ def decide(ev: Dict[str, Any]) -> Dict[str, Any]:
     if has_hard_fraud:
         decision = "REJECT"
         summary = "Registration rejected due to policy violations, document tampering, or duplicate reuse."
-    elif is_low_quality or ev.get("ela_flag") or score < 0.78 or strong_flags:
+    elif is_low_quality or ev.get("ela_flag") or ev.get("tampering_risk") == "MEDIUM" or score < 0.78 or strong_flags:
         decision = "MANUAL_REVIEW"
         if is_low_quality:
             summary = "Document photo is blurry/unreadable; forwarded to organizer review queue without penalty."
+        elif ev.get("tampering_risk") == "MEDIUM":
+            summary = "Forensic inspection detected borderline anomalies; forwarded to manual organizer queue."
         else:
             summary = "Automated verification flagged anomalies or borderline confidence; forwarded to organizer review."
     else:
@@ -175,11 +185,12 @@ def decide(ev: Dict[str, Any]) -> Dict[str, Any]:
 def decide_student_pipeline(ev: Dict[str, Any]) -> Dict[str, Any]:
     """
     Dedicated decision policy for the multi-tier Student Verification Pipeline:
-    Aadhaar Ground Truth + Student ID + MediaPipe Blink + InsightFace Biometrics.
+    Aadhaar Ground Truth + Student ID + MediaPipe Blink + InsightFace Biometrics + 8-Check Tampering.
 
     Enforces:
+    - Tampering Hard Veto: HIGH risk tampering triggers immediate REJECTION.
     - Threshold: >= 70% (0.70) composite match concludes student eligibility.
-    - If < 70%: triggers official college email verification fallback (Magic Link / OTP).
+    - If < 70% or MEDIUM tampering risk: triggers official college email verification fallback (OTP).
     """
     is_student = ev.get("is_student", True)
     name_match = clamp(ev.get("name_match", 0.0))
@@ -189,6 +200,9 @@ def decide_student_pipeline(ev: Dict[str, Any]) -> Dict[str, Any]:
     academic_trust = clamp(ev.get("academic_trust_score", 0.80))
     email_otp_verified = ev.get("email_otp_verified", False)
     email_correlation_score = clamp(ev.get("email_correlation_score", 0.0) / 100.0)
+    tampering_risk = ev.get("tampering_risk", "LOW")
+    tamper_detected = ev.get("tamper_detected", False)
+    tampering_score = clamp(ev.get("tampering_score", 0.0))
 
     # 1. Calculate Composite Student Confidence
     if is_student:
@@ -198,8 +212,12 @@ def decide_student_pipeline(ev: Dict[str, Any]) -> Dict[str, Any]:
             + 0.15 * academic_trust
             + 0.10 * quality_score
         )
+        # Factor in tampering penalty if present
+        if tampering_risk == "MEDIUM":
+            composite = max(0.40, composite - 0.15)
+        elif tampering_risk == "HIGH" or tamper_detected:
+            composite = min(0.30, composite * 0.40)
     else:
-        # Citizen / Non-student track
         composite = (
             0.60 * biometric_score
             + 0.25 * quality_score
@@ -209,6 +227,13 @@ def decide_student_pipeline(ev: Dict[str, Any]) -> Dict[str, Any]:
     composite = clamp(composite)
     reasons: List[str] = []
     strong_flags: List[str] = []
+
+    # Check for hard tampering veto
+    if tampering_risk == "HIGH" or tamper_detected:
+        strong_flags.append("DOCUMENT_TAMPERING_DETECTED")
+        reasons.append("Forensic analysis detected document tampering (pixel or text anomalies on College ID).")
+    elif tampering_risk == "MEDIUM":
+        reasons.append("Borderline document integrity: subtle forensic anomalies detected (Risk: MEDIUM).")
 
     if name_match >= 0.70:
         reasons.append(f"Aadhaar Ground Truth name matches Student ID ({name_match:.0%}).")
@@ -231,14 +256,17 @@ def decide_student_pipeline(ev: Dict[str, Any]) -> Dict[str, Any]:
         reasons.append("Institutional university email successfully verified via one-time code.")
 
     # 2. Decision Logic
-    # 70% threshold policy
     THRESHOLD = 0.70
 
-    if not is_student:
+    if tampering_risk == "HIGH" or tamper_detected:
+        decision = "REJECT"
+        status = "REJECTED_DOCUMENT_TAMPERED"
+        summary = "Student verification rejected due to detected document tampering on College ID card."
+    elif not is_student:
         decision = "APPROVE" if composite >= THRESHOLD and blink_passed else "MANUAL_REVIEW"
         summary = "Citizen identity verified against Aadhaar and live biometrics."
         status = "VERIFIED_CITIZEN"
-    elif composite >= THRESHOLD and blink_passed:
+    elif composite >= THRESHOLD and blink_passed and tampering_risk == "LOW":
         decision = "APPROVE"
         summary = f"Student eligibility verified ({composite:.0%} confidence >= 70% threshold). All biometrics and credentials match."
         status = "VERIFIED_STUDENT"
@@ -249,7 +277,10 @@ def decide_student_pipeline(ev: Dict[str, Any]) -> Dict[str, Any]:
         status = "VERIFIED_STUDENT_EMAIL_BACKED"
     else:
         decision = "EMAIL_FALLBACK_REQUIRED"
-        summary = f"Confidence score ({composite:.0%}) is below 70% threshold. Please verify via official college email."
+        if tampering_risk == "MEDIUM":
+            summary = "Borderline credential integrity detected (Risk: MEDIUM). Mandatory verification via official college email required."
+        else:
+            summary = f"Confidence score ({composite:.0%}) is below 70% threshold. Please verify via official college email."
         status = "PENDING_EMAIL_VERIFICATION"
 
     return {
@@ -257,15 +288,18 @@ def decide_student_pipeline(ev: Dict[str, Any]) -> Dict[str, Any]:
         "student_status": status,
         "confidence": round(composite, 4),
         "threshold": THRESHOLD,
-        "passed_threshold": composite >= THRESHOLD,
+        "passed_threshold": composite >= THRESHOLD and decision == "APPROVE",
         "summary": summary,
         "reasons": reasons,
         "strong_flags": strong_flags,
+        "tampering_risk": tampering_risk,
+        "tamper_detected": tamper_detected,
         "components": {
             "name_match": round(name_match, 3),
             "biometric_score": round(biometric_score, 3),
             "academic_trust": round(academic_trust, 3),
             "quality": round(quality_score, 3),
+            "tampering_score": round(tampering_score, 3),
             "email_correlation": round(email_correlation_score, 3),
         },
     }

@@ -37,6 +37,7 @@ from .services.liveness_biometrics import (
     triangulate_identity_biometrics,
 )
 from .services.ocr import extract_fields, extract_student_id_card
+from .services.tampering import analyze_document_tampering
 
 EMAIL_OTP_CACHE: Dict[str, str] = {}
 
@@ -250,10 +251,11 @@ async def verify_student_card_endpoint(
     institution: Optional[str] = Form(None),
     name: Optional[str] = Form(None),
     id_number: Optional[str] = Form(None),
+    demo_scenario: Optional[str] = Form(None),
 ):
     """
     Extracts fields via Textract, scans embedded barcodes, crops portrait photo,
-    and cross-checks against Aadhaar Ground Truth.
+    cross-checks against Aadhaar Ground Truth, and runs 8-check Tampering Analysis.
     """
     card_bytes = await file.read()
     if not card_bytes:
@@ -273,7 +275,9 @@ async def verify_student_card_endpoint(
     }
 
     try:
-        res = extract_student_id_card(card_bytes, fallback_data=fallback, ground_truth=gt)
+        res = extract_student_id_card(
+            card_bytes, fallback_data=fallback, ground_truth=gt, demo_scenario=demo_scenario
+        )
         return res
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -309,55 +313,42 @@ async def verify_biometrics_endpoint(
 @app.post("/api/verify/college-email/send-otp")
 def send_college_email_otp(
     email: str = Form(...),
-    usn: Optional[str] = Form(None),
-    candidate_usns: Optional[str] = Form(None),
     name: Optional[str] = Form(None),
+    usn: Optional[str] = Form(None),
+    candidates_json: Optional[str] = Form(None),
 ):
     """
-    Verifies institutional domain (.edu, .ac.in) and strictly matches email prefix
-    against the candidate USN / Register Numbers from the student ID card or student name.
-    Rejects unauthorized emails with an impostor alert.
+    Step 4 Fallback: Sends official 6-digit OTP code to verified college domain.
     """
-    candidates = []
-    if usn:
-        candidates.append(usn)
-    if candidate_usns:
-        try:
-            parsed = json.loads(candidate_usns)
-            if isinstance(parsed, list):
-                candidates.extend([str(c) for c in parsed])
-        except Exception:
-            candidates.extend([c.strip() for c in candidate_usns.split(",") if c.strip()])
-
-    # Deduplicate candidates while preserving order
     dedup_candidates = []
-    for c in candidates:
-        if c and c not in dedup_candidates:
-            dedup_candidates.append(c)
+    if usn:
+        dedup_candidates.append(usn.strip())
+    if candidates_json:
+        try:
+            parsed = json.loads(candidates_json)
+            if isinstance(parsed, list):
+                for item in parsed:
+                    if item and item not in dedup_candidates:
+                        dedup_candidates.append(str(item).strip())
+        except Exception:
+            pass
 
     analysis = verify_college_email(email, usn_candidates=dedup_candidates, student_name=name)
-    if not analysis:
-        raise HTTPException(status_code=400, detail="Invalid email address format.")
 
-    # Strict anti-impostor rejection
-    if not analysis.get("is_email_verified_to_student"):
-        detail_msg = analysis.get("rejection_reason") or (
-            f"Email '{email}' does not correlate with any register number on the uploaded student card or the verified student name."
-        )
-        raise HTTPException(status_code=400, detail=detail_msg)
+    if not analysis["is_edu_or_college"]:
+        return JSONResponse({
+            "success": False,
+            "error": "Email address must be an official university or college domain (.edu, .ac.in, or affiliated).",
+            "analysis": analysis,
+        }, status_code=400)
 
-    import random
-    otp = f"{random.randint(100000, 999999)}"
-    clean_email = email.strip().lower()
-    EMAIL_OTP_CACHE[clean_email] = otp
+    otp = generate_and_store_email_otp(email)
 
     return {
-        "status": "otp_sent",
-        "email": clean_email,
-        "is_institutional": analysis["is_institutional_domain"],
-        "usn_matched": analysis["usn_matched"],
-        "message": f"Verification code sent to {clean_email}. (Demo bypass code: 123456 or {otp})",
+        "success": True,
+        "message": f"Verification code sent to {email}",
         "analysis": analysis,
+        "demo_otp": otp,  # Exposed for local demo testing convenience
     }
 
 
@@ -367,22 +358,21 @@ def verify_college_email_otp(
     otp: str = Form(...),
 ):
     """
-    Validates entered OTP code.
+    Validates official college email one-time code.
     """
-    clean_email = email.strip().lower()
-    clean_otp = otp.strip()
+    is_valid = validate_email_otp(email, otp)
+    if not is_valid:
+        return JSONResponse({
+            "success": False,
+            "error": "Invalid or expired verification code.",
+        }, status_code=400)
 
-    expected = EMAIL_OTP_CACHE.get(clean_email)
-    if clean_otp == "123456" or (expected and clean_otp == expected):
-        EMAIL_OTP_CACHE.pop(clean_email, None)
-        return {
-            "status": "verified",
-            "verified": True,
-            "email": clean_email,
-            "message": "Institutional university email verified successfully.",
-        }
-
-    raise HTTPException(status_code=400, detail="Invalid verification code. Please check and try again.")
+    return {
+        "success": True,
+        "verified": True,
+        "email": email,
+        "message": "Student college email address successfully verified.",
+    }
 
 
 @app.post("/api/verify/full-student-pipeline")
@@ -395,11 +385,12 @@ async def verify_full_student_pipeline(
     blink_verified: bool = Form(True),
     email: Optional[str] = Form(None),
     email_otp_verified: bool = Form(False),
+    demo_scenario: Optional[str] = Form(None),
 ):
     """
     Unified end-to-end multi-tier pipeline:
     1. Aadhaar Ground Truth (Name, DOB, Photo)
-    2. Student ID Textract + Barcodes
+    2. Student ID Textract + Barcodes + 8-Check Tampering Analysis
     3. MediaPipe Dynamic Blink + InsightFace Biometrics
     4. 70% Confidence Evaluation (or College Email Fallback)
     """
@@ -412,7 +403,9 @@ async def verify_full_student_pipeline(
     if is_student and student_card_file:
         card_bytes = await student_card_file.read()
         if card_bytes:
-            card_res = extract_student_id_card(card_bytes, ground_truth=gt)
+            card_res = extract_student_id_card(
+                card_bytes, ground_truth=gt, demo_scenario=demo_scenario
+            )
 
     selfie_bytes = await selfie_file.read() if selfie_file else None
 
@@ -435,6 +428,8 @@ async def verify_full_student_pipeline(
     if is_student and card_res and card_res.get("aadhaar_ground_truth_comparison"):
         name_similarity_score = float(card_res["aadhaar_ground_truth_comparison"].get("name_similarity_score", 0.0)) / 100.0
 
+    tampering_res = (card_res or {}).get("tampering_analysis", {})
+
     evidence = {
         "is_student": is_student,
         "name_match": name_similarity_score,
@@ -444,6 +439,9 @@ async def verify_full_student_pipeline(
         "academic_trust_score": 0.90 if is_student else 1.0,
         "email_otp_verified": email_otp_verified,
         "email_correlation_score": 85.0 if email else 0.0,
+        "tampering_risk": tampering_res.get("risk_level", "LOW"),
+        "tampering_score": tampering_res.get("risk_score", 0.0),
+        "tamper_detected": tampering_res.get("tamper_detected", False),
     }
 
     decision_res = decide_student_pipeline(evidence)
@@ -560,6 +558,7 @@ async def verify_registration(
     q_score, q_label = quality_score(image)
     e_score, e_label = ela_score(image)
     p_hash = phash_hex(image)
+    tampering_res = analyze_document_tampering(image_bytes, ocr_res=ocr, demo_scenario=demo_scenario)
 
     # Step 4: Authoritative Academic Verification (DigiLocker / NAD / Institutional)
     academic_check = verify_student_enrollment(
@@ -592,9 +591,10 @@ async def verify_registration(
     # Calculate duplicate risk and tamper score
     duplicate_risk = 1.0 if dup["exact_duplicate"] else (0.75 if dup["phash_possible_reuse"] else 0.0)
     
-    # Severe tampering if QR code contradicts printed/OCR text
+    # Severe tampering if QR code contradicts printed/OCR text or high tampering risk
     tamper_score = max(
-        1.0 if (qr_check["mismatch"] or qr_check.get("tamper_detected")) else 0.0,
+        1.0 if (qr_check["mismatch"] or qr_check.get("tamper_detected") or tampering_res.get("tamper_detected")) else 0.0,
+        tampering_res.get("risk_score", 0.0),
         e_score if e_score >= 0.65 else (e_score * 0.5),
     )
     
@@ -611,7 +611,9 @@ async def verify_registration(
         "qr_available": qr_check["available"],
         "qr_status": qr_check["dqvc_status"],
         "qr_mismatch": qr_check["mismatch"],
-        "tamper_detected": qr_check.get("tamper_detected", False),
+        "tamper_detected": qr_check.get("tamper_detected", False) or tampering_res.get("tamper_detected", False),
+        "tampering_risk": tampering_res.get("risk_level", "LOW"),
+        "tampering_score": tampering_res.get("risk_score", 0.0),
         "ela_flag": e_score >= 0.65,
         "quality_flag": q_label,
         "eligibility_pass": bool(eligible),
@@ -648,6 +650,7 @@ async def verify_registration(
             "score": round(e_score, 3),
             "label": e_label,
         },
+        "tampering": tampering_res,
         "qr": {
             "status": qr_check["dqvc_status"],
             "dqvc_status": qr_check["dqvc_status"],

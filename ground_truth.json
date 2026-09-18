@@ -1,0 +1,14 @@
+{
+  "source": "aadhaar_secure_qr",
+  "source_file": "Musharraf-Aadhar.pdf",
+  "signature_status": "CERT_NOT_FOUND",
+  "ground_truth": {
+    "name": "Mohammed Musharraf",
+    "dob": "11-01-2005",
+    "dob_iso": "2005-01-11",
+    "gender": "M",
+    "aadhaar_last_4": "1473",
+    "mobile_last_4": "7838",
+    "photo_path": "C:\\Users\\Musharraf\\Documents\\Slayers\\aadhaar_qr_photo.jpg"
+  }
+}
