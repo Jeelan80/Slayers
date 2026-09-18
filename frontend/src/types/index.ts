@@ -177,6 +177,30 @@ export interface AadhaarExtractionResponse {
   error?: string;
 }
 
+export interface PanGroundTruth {
+  name?: string;
+  dob?: string;
+  dob_iso?: string;
+  pan_number?: string;
+  pan_last_4?: string;
+  fathers_name?: string;
+  gender?: string;
+  id_type?: string;
+}
+
+export interface PanExtractionResponse {
+  success: boolean;
+  id_type: string;
+  has_embedded_photo: boolean;
+  photo_base64?: string;
+  confidence: number;
+  status: string;
+  summary?: string;
+  reasons?: string[];
+  ground_truth: PanGroundTruth;
+  error?: string;
+}
+
 export interface StudentCardExtractionResponse {
   success: boolean;
   extracted_fields: {
@@ -220,10 +244,40 @@ export interface BiometricTriangulationResponse {
   has_aadhaar_biometric: boolean;
 }
 
+export interface AcademicDocumentComparison {
+  name_match: boolean;
+  name_similarity_score: number;
+  usn_match: boolean;
+  institution_match: boolean;
+  is_recent_session: boolean;
+  overall_verified: boolean;
+}
+
+export interface AcademicDocumentResponse {
+  success: boolean;
+  verified: boolean;
+  doc_type: string;
+  doc_label: string;
+  extracted_fields: {
+    name?: string;
+    roll_number?: string;
+    institution?: string;
+    course?: string;
+    academic_year?: string;
+    reference_no?: string;
+    document_type?: string;
+  };
+  comparison: AcademicDocumentComparison;
+  confidence_boost: number;
+  reasons: string[];
+  message: string;
+  error?: string;
+}
+
 export interface FullPipelineResponse {
   registration_id?: number;
   decision: DecisionType | 'EMAIL_FALLBACK_REQUIRED';
-  student_status: 'VERIFIED_STUDENT' | 'VERIFIED_STUDENT_EMAIL_BACKED' | 'VERIFIED_CITIZEN' | 'PENDING_EMAIL_VERIFICATION' | 'MANUAL_REVIEW' | 'REJECTED_DOCUMENT_TAMPERED';
+  student_status: 'VERIFIED_STUDENT' | 'VERIFIED_STUDENT_EMAIL_BACKED' | 'VERIFIED_STUDENT_DOCUMENT_BACKED' | 'VERIFIED_CITIZEN' | 'PENDING_EMAIL_VERIFICATION' | 'MANUAL_REVIEW' | 'REJECTED_DOCUMENT_TAMPERED';
   confidence: number;
   threshold: number;
   passed_threshold: boolean;
@@ -234,6 +288,9 @@ export interface FullPipelineResponse {
   tampering_risk?: 'LOW' | 'MEDIUM' | 'HIGH';
   tamper_detected?: boolean;
   aadhaar?: AadhaarExtractionResponse;
+  pan?: PanExtractionResponse;
+  govt_id?: AadhaarExtractionResponse | PanExtractionResponse;
   student_card?: StudentCardExtractionResponse;
+  academic_document?: AcademicDocumentResponse;
   biometrics?: BiometricTriangulationResponse;
 }

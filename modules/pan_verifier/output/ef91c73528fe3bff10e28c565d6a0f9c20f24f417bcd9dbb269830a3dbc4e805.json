@@ -1,0 +1,110 @@
+{
+  "image_hash": "ef91c73528fe3bff10e28c565d6a0f9c20f24f417bcd9dbb269830a3dbc4e805",
+  "image_path": "/Users/amankumar/Aman/Slayers/modules/pan_verifier/samples/sample_pan.png",
+  "image_name": "sample_pan.png",
+  "timestamp": "2026-09-18T08:39:12.411119+00:00",
+  "fields": {
+    "pan_number": {
+      "value": "IPXPM8977J",
+      "confidence": 1.0,
+      "bounding_box": [
+        619,
+        762,
+        685,
+        1276
+      ],
+      "is_valid": true,
+      "validation_note": "Verified: 5th char 'M' matches surname 'MAHTO'",
+      "raw_text": null,
+      "method": null,
+      "validation": null
+    },
+    "name": {
+      "value": "BODHI MAHTO",
+      "confidence": 0.96,
+      "bounding_box": [
+        893,
+        79,
+        938,
+        255
+      ],
+      "is_valid": true,
+      "validation_note": null,
+      "raw_text": null,
+      "method": null,
+      "validation": null
+    },
+    "fathers_name": {
+      "value": "SHANICHAR MAHTO",
+      "confidence": 0.96,
+      "bounding_box": [
+        1087,
+        80,
+        1134,
+        412
+      ],
+      "is_valid": true,
+      "validation_note": null,
+      "raw_text": null,
+      "method": null,
+      "validation": null
+    },
+    "dob": {
+      "value": "01/01/1958",
+      "confidence": 0.98,
+      "bounding_box": [
+        1355,
+        82,
+        1398,
+        258
+      ],
+      "is_valid": true,
+      "validation_note": null,
+      "raw_text": null,
+      "method": null,
+      "validation": null
+    }
+  },
+  "qr_data": {
+    "detected": true,
+    "payload": null,
+    "raw_payload": null,
+    "decoded_fields": {},
+    "confidence": 0.85,
+    "status": "DETECTED_NOT_DECODED",
+    "polygon": [
+      [
+        807.0,
+        665.0
+      ],
+      [
+        1696.0,
+        663.0
+      ],
+      [
+        1714.891357421875,
+        1584.526123046875
+      ],
+      [
+        813.0,
+        1575.0
+      ]
+    ],
+    "cross_validation": null
+  },
+  "overall_confidence": 100.0,
+  "status": "VALID",
+  "forensic_summary": "All 4 core identity fields successfully verified with high confidence (100.0%).",
+  "reasons": [
+    "Forensic check passed: 5th character of PAN 'M' matches surname 'MAHTO'",
+    "Patronymic consistency verified: Cardholder and Father share surname 'MAHTO'",
+    "Secure QR code presence detected"
+  ],
+  "metadata": {
+    "ocr_tokens_count": 41,
+    "resolution": [
+      2304,
+      1488
+    ]
+  }
+}

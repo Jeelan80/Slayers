@@ -200,6 +200,9 @@ def decide_student_pipeline(ev: Dict[str, Any]) -> Dict[str, Any]:
     academic_trust = clamp(ev.get("academic_trust_score", 0.80))
     email_otp_verified = ev.get("email_otp_verified", False)
     email_correlation_score = clamp(ev.get("email_correlation_score", 0.0) / 100.0)
+    college_doc_verified = ev.get("college_doc_verified", False)
+    college_doc_score = clamp(ev.get("college_doc_score", 0.0))
+    college_doc_type = ev.get("college_doc_type", "FEE_RECEIPT")
     tampering_risk = ev.get("tampering_risk", "LOW")
     tamper_detected = ev.get("tamper_detected", False)
     tampering_score = clamp(ev.get("tampering_score", 0.0))
@@ -255,6 +258,9 @@ def decide_student_pipeline(ev: Dict[str, Any]) -> Dict[str, Any]:
     if email_otp_verified:
         reasons.append("Institutional university email successfully verified via one-time code.")
 
+    if college_doc_verified:
+        reasons.append(f"Official institutional document ({college_doc_type.replace('_', ' ').title()}) verified against Ground Truth.")
+
     # 2. Decision Logic
     THRESHOLD = 0.70
 
@@ -275,12 +281,17 @@ def decide_student_pipeline(ev: Dict[str, Any]) -> Dict[str, Any]:
         composite = max(composite, 0.85)
         summary = "Student eligibility verified via confirmed official university email challenge."
         status = "VERIFIED_STUDENT_EMAIL_BACKED"
+    elif college_doc_verified:
+        decision = "APPROVE"
+        composite = max(composite, 0.88)
+        summary = f"Student eligibility verified via authenticated institutional document ({college_doc_type.replace('_', ' ').title()})."
+        status = "VERIFIED_STUDENT_DOCUMENT_BACKED"
     else:
         decision = "EMAIL_FALLBACK_REQUIRED"
         if tampering_risk == "MEDIUM":
-            summary = "Borderline credential integrity detected (Risk: MEDIUM). Mandatory verification via official college email required."
+            summary = "Borderline credential integrity detected (Risk: MEDIUM). Verification via college email or fee receipt / bonafide required."
         else:
-            summary = f"Confidence score ({composite:.0%}) is below 70% threshold. Please verify via official college email."
+            summary = f"Confidence score ({composite:.0%}) is below 70% threshold. Please verify via official college email or institutional document."
         status = "PENDING_EMAIL_VERIFICATION"
 
     return {
@@ -301,5 +312,6 @@ def decide_student_pipeline(ev: Dict[str, Any]) -> Dict[str, Any]:
             "quality": round(quality_score, 3),
             "tampering_score": round(tampering_score, 3),
             "email_correlation": round(email_correlation_score, 3),
+            "college_doc_score": round(college_doc_score, 3),
         },
     }

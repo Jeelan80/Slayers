@@ -19,7 +19,9 @@ from .db import (
     update_registration_status,
 )
 from .services.aadhaar import parse_aadhaar_ground_truth
+from .services.pan import parse_pan_ground_truth
 from .services.academic import verify_college_email, verify_student_enrollment
+from .services.academic_document import parse_academic_document
 from .services.decision import decide, decide_student_pipeline
 from .services.duplicate import duplicate_evidence, mask_id
 from .services.face import face_match_if_enabled
@@ -244,6 +246,26 @@ async def verify_aadhaar_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.post("/api/verify/pan")
+async def verify_pan_endpoint(
+    file: UploadFile = File(...),
+):
+    """
+    Extracts and validates PAN Ground Truth (PAN number, name, DOB, father's name)
+    from uploaded PAN card image or PDF using AWS Textract / modules.pan_verifier.
+    """
+    doc_bytes = await file.read()
+    if not doc_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded PAN file is empty.")
+    try:
+        res = parse_pan_ground_truth(doc_bytes)
+        if not res.get("success"):
+            return JSONResponse(res, status_code=422)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.post("/api/verify/student-card")
 async def verify_student_card_endpoint(
     file: UploadFile = File(...),
@@ -375,28 +397,98 @@ def verify_college_email_otp(
     }
 
 
+@app.post("/api/verify/academic-document")
+async def verify_academic_document_endpoint(
+    file: UploadFile = File(...),
+    doc_type: Optional[str] = Form("AUTO"),
+    ground_truth_json: Optional[str] = Form(None),
+    candidate_usns_json: Optional[str] = Form(None),
+    institution: Optional[str] = Form(None),
+):
+    """
+    Extracts fields from College Fee Receipt or Bonafide Certificate and
+    cross-references against established Ground Truth (Name, USN, Institution).
+    """
+    doc_bytes = await file.read()
+    if not doc_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded academic document is empty.")
+
+    gt = None
+    if ground_truth_json:
+        try:
+            gt = json.loads(ground_truth_json)
+        except Exception:
+            pass
+
+    usns = None
+    if candidate_usns_json:
+        try:
+            usns = json.loads(candidate_usns_json)
+        except Exception:
+            pass
+
+    try:
+        res = parse_academic_document(
+            file_bytes=doc_bytes,
+            doc_type_hint=doc_type,
+            ground_truth=gt,
+            candidate_usns=usns,
+            institution_hint=institution,
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.post("/api/verify/full-student-pipeline")
 async def verify_full_student_pipeline(
-    aadhaar_file: UploadFile = File(...),
+    aadhaar_file: Optional[UploadFile] = File(None),
     aadhaar_password: Optional[str] = Form(None),
+    pan_file: Optional[UploadFile] = File(None),
+    govt_id_type: str = Form("AADHAAR"),
     is_student: bool = Form(True),
     student_card_file: Optional[UploadFile] = File(None),
     selfie_file: Optional[UploadFile] = File(None),
     blink_verified: bool = Form(True),
     email: Optional[str] = Form(None),
     email_otp_verified: bool = Form(False),
+    college_doc_file: Optional[UploadFile] = File(None),
+    college_doc_verified: bool = Form(False),
     demo_scenario: Optional[str] = Form(None),
 ):
     """
     Unified end-to-end multi-tier pipeline:
-    1. Aadhaar Ground Truth (Name, DOB, Photo)
+    1. Government ID Ground Truth (Aadhaar or PAN)
     2. Student ID Textract + Barcodes + 8-Check Tampering Analysis
     3. MediaPipe Dynamic Blink + InsightFace Biometrics
-    4. 70% Confidence Evaluation (or College Email Fallback)
+    4. 70% Confidence Evaluation (or College Email / Document Fallback)
     """
-    aadhaar_bytes = await aadhaar_file.read()
-    aadhaar_res = parse_aadhaar_ground_truth(aadhaar_bytes, password=aadhaar_password)
-    gt = aadhaar_res.get("ground_truth", {})
+    id_type_upper = (govt_id_type or "AADHAAR").upper()
+    govt_res = None
+    gt = {}
+    govt_photo_raw = None
+
+    if id_type_upper == "PAN" and pan_file:
+        pan_bytes = await pan_file.read()
+        govt_res = parse_pan_ground_truth(pan_bytes)
+        gt = govt_res.get("ground_truth", {})
+        if govt_res.get("photo_base64"):
+            try:
+                govt_photo_raw = base64.b64decode(govt_res["photo_base64"].split(",")[-1])
+            except Exception:
+                pass
+    elif aadhaar_file:
+        aadhaar_bytes = await aadhaar_file.read()
+        govt_res = parse_aadhaar_ground_truth(aadhaar_bytes, password=aadhaar_password)
+        gt = govt_res.get("ground_truth", {})
+        if govt_res.get("photo_base64"):
+            try:
+                govt_photo_raw = base64.b64decode(govt_res["photo_base64"].split(",")[-1])
+            except Exception:
+                pass
+    else:
+        # Fallback if no file provided directly
+        gt = {}
 
     card_res = None
     card_bytes = None
@@ -410,17 +502,10 @@ async def verify_full_student_pipeline(
     selfie_bytes = await selfie_file.read() if selfie_file else None
 
     # Biometrics
-    aadhaar_photo_raw = None
-    if aadhaar_res.get("photo_base64"):
-        try:
-            aadhaar_photo_raw = base64.b64decode(aadhaar_res["photo_base64"].split(",")[-1])
-        except Exception:
-            pass
-
     biometrics_res = triangulate_identity_biometrics(
         live_selfie_bytes=selfie_bytes,
         student_card_bytes=card_bytes,
-        aadhaar_photo_bytes=aadhaar_photo_raw,
+        aadhaar_photo_bytes=govt_photo_raw,
         blink_passed=blink_verified,
     )
 
@@ -429,6 +514,20 @@ async def verify_full_student_pipeline(
         name_similarity_score = float(card_res["aadhaar_ground_truth_comparison"].get("name_similarity_score", 0.0)) / 100.0
 
     tampering_res = (card_res or {}).get("tampering_analysis", {})
+
+    academic_doc_res = None
+    if college_doc_file:
+        doc_bytes = await college_doc_file.read()
+        if doc_bytes:
+            usn_list = card_res.get("potential_register_numbers") if card_res else []
+            academic_doc_res = parse_academic_document(
+                file_bytes=doc_bytes,
+                ground_truth=gt,
+                candidate_usns=usn_list,
+                institution_hint=card_res.get("extracted_fields", {}).get("institution") if card_res else None,
+            )
+            if academic_doc_res.get("verified"):
+                college_doc_verified = True
 
     evidence = {
         "is_student": is_student,
@@ -439,6 +538,9 @@ async def verify_full_student_pipeline(
         "academic_trust_score": 0.90 if is_student else 1.0,
         "email_otp_verified": email_otp_verified,
         "email_correlation_score": 85.0 if email else 0.0,
+        "college_doc_verified": college_doc_verified,
+        "college_doc_score": 0.92 if college_doc_verified else 0.0,
+        "college_doc_type": (academic_doc_res or {}).get("doc_type", "FEE_RECEIPT"),
         "tampering_risk": tampering_res.get("risk_level", "LOW"),
         "tampering_score": tampering_res.get("risk_score", 0.0),
         "tamper_detected": tampering_res.get("tamper_detected", False),
@@ -446,12 +548,12 @@ async def verify_full_student_pipeline(
 
     decision_res = decide_student_pipeline(evidence)
 
-    masked_id = gt.get("aadhaar_last_4") or (card_res.get("extracted_fields", {}).get("id_number") if card_res else "ID123")
+    masked_id = gt.get("pan_last_4") or gt.get("aadhaar_last_4") or (card_res.get("extracted_fields", {}).get("id_number") if card_res else "ID123")
     reg_id = insert_registration(
         name=gt.get("name") or "Participant",
         dob=gt.get("dob_iso") or gt.get("dob") or "2005-01-01",
         institution=card_res.get("extracted_fields", {}).get("institution") if card_res else "Citizen",
-        id_type="AADHAAR_STUDENT" if is_student else "AADHAAR_CITIZEN",
+        id_type=f"{id_type_upper}_STUDENT" if is_student else f"{id_type_upper}_CITIZEN",
         id_number_masked=f"XXXX-XXXX-{masked_id[-4:]}" if masked_id else "XXXX-XXXX-0000",
         id_fingerprint=f"fp_{masked_id}",
         phash=None,
@@ -460,9 +562,12 @@ async def verify_full_student_pipeline(
         summary=decision_res["summary"],
         reasons_json=json.dumps(decision_res["reasons"]),
         checks_json=json.dumps({
-            "aadhaar": aadhaar_res,
+            "govt_id": govt_res,
+            "aadhaar": govt_res if id_type_upper == "AADHAAR" else None,
+            "pan": govt_res if id_type_upper == "PAN" else None,
             "student_card": card_res,
             "biometrics": biometrics_res,
+            "academic_document": academic_doc_res,
             "decision": decision_res,
         }),
         extracted_json=json.dumps({
@@ -482,8 +587,11 @@ async def verify_full_student_pipeline(
         "summary": decision_res["summary"],
         "reasons": decision_res["reasons"],
         "components": decision_res["components"],
-        "aadhaar": aadhaar_res,
+        "govt_id": govt_res,
+        "aadhaar": govt_res if id_type_upper == "AADHAAR" else None,
+        "pan": govt_res if id_type_upper == "PAN" else None,
         "student_card": card_res,
+        "academic_document": academic_doc_res,
         "biometrics": biometrics_res,
     }
 

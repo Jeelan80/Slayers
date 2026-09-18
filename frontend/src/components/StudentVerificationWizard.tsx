@@ -46,13 +46,15 @@ export function StudentVerificationWizard({
 }: StudentVerificationWizardProps) {
   const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
 
-  // Step state: 1 = Aadhaar, 2 = Student ID, 3 = Live Selfie / Biometrics, 4 = Concluded
+  // Step state: 1 = Govt ID, 2 = Student ID, 3 = Live Selfie / Biometrics, 4 = Concluded
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
 
-  // Step 1: Aadhaar Ground Truth
+  // Step 1: Government ID Ground Truth (Aadhaar or PAN)
+  const [govtIdType, setGovtIdType] = useState<'AADHAAR' | 'PAN'>('AADHAAR');
   const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
   const [aadhaarPassword, setAadhaarPassword] = useState('');
-  const [isExtractingAadhaar, setIsExtractingAadhaar] = useState(false);
+  const [panFile, setPanFile] = useState<File | null>(null);
+  const [isExtractingGovtId, setIsExtractingGovtId] = useState(false);
   const [groundTruth, setGroundTruth] = useState<any | null>(null);
   const [aadhaarPhotoRaw, setAadhaarPhotoRaw] = useState<string | null>(null);
 
@@ -78,46 +80,78 @@ export function StudentVerificationWizard({
 
   if (!isOpen) return null;
 
-  // Step 1: Extract Aadhaar Ground Truth
-  const handleAadhaarUpload = async (e: React.FormEvent) => {
+  // Step 1: Extract Government ID Ground Truth (Aadhaar or PAN)
+  const handleGovtIdUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!aadhaarFile) {
-      setErrorMessage('Please select your Aadhaar card file (PDF or image).');
-      return;
-    }
-
-    setIsExtractingAadhaar(true);
     setErrorMessage(null);
 
-    try {
-      const formData = new FormData();
-      formData.append('file', aadhaarFile);
-      if (aadhaarPassword) {
-        formData.append('password', aadhaarPassword);
+    if (govtIdType === 'AADHAAR') {
+      if (!aadhaarFile) {
+        setErrorMessage('Please select your Aadhaar card file (PDF or image).');
+        return;
       }
 
-      const res = await fetch(`${apiUrl}/api/verify/aadhaar`, {
-        method: 'POST',
-        body: formData,
-      });
+      setIsExtractingGovtId(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', aadhaarFile);
+        if (aadhaarPassword) {
+          formData.append('password', aadhaarPassword);
+        }
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || data.error || 'Failed to extract Aadhaar Ground Truth.');
+        const res = await fetch(`${apiUrl}/api/verify/aadhaar`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || data.error || 'Failed to extract Aadhaar Ground Truth.');
+        }
+
+        setGroundTruth(data.ground_truth);
+        if (data.photo_base64) {
+          setAadhaarPhotoRaw(data.photo_base64);
+        }
+
+        setCurrentStep(2);
+      } catch (err: any) {
+        setErrorMessage(err.message || 'Error processing Aadhaar document. Check password if PDF is protected.');
+      } finally {
+        setIsExtractingGovtId(false);
+      }
+    } else {
+      if (!panFile) {
+        setErrorMessage('Please select your PAN card file (image or PDF).');
+        return;
       }
 
-      // Store Ground Truth securely in state without displaying sensitive demographic details
-      setGroundTruth(data.ground_truth);
-      if (data.photo_base64) {
-        setAadhaarPhotoRaw(data.photo_base64);
-      }
+      setIsExtractingGovtId(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', panFile);
 
-      // Smoothly advance to Step 2
-      setCurrentStep(2);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Error processing Aadhaar document. Check password if PDF is protected.');
-    } finally {
-      setIsExtractingAadhaar(false);
+        const res = await fetch(`${apiUrl}/api/verify/pan`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || data.error || 'Failed to extract PAN Ground Truth.');
+        }
+
+        setGroundTruth(data.ground_truth);
+        if (data.photo_base64) {
+          setAadhaarPhotoRaw(data.photo_base64);
+        }
+
+        setCurrentStep(2);
+      } catch (err: any) {
+        setErrorMessage(err.message || 'Error processing PAN card document.');
+      } finally {
+        setIsExtractingGovtId(false);
+      }
     }
   };
 
@@ -200,15 +234,21 @@ export function StudentVerificationWizard({
   };
 
   const runFullEvaluation = async (selfie: File, blink: boolean, emailVerifiedParam: boolean = false) => {
-    if (!aadhaarFile) return;
+    if (govtIdType === 'AADHAAR' && !aadhaarFile) return;
+    if (govtIdType === 'PAN' && !panFile) return;
 
     setIsEvaluatingBiometrics(true);
     setErrorMessage(null);
 
     try {
       const formData = new FormData();
-      formData.append('aadhaar_file', aadhaarFile);
-      if (aadhaarPassword) formData.append('aadhaar_password', aadhaarPassword);
+      formData.append('govt_id_type', govtIdType);
+      if (govtIdType === 'AADHAAR' && aadhaarFile) {
+        formData.append('aadhaar_file', aadhaarFile);
+        if (aadhaarPassword) formData.append('aadhaar_password', aadhaarPassword);
+      } else if (govtIdType === 'PAN' && panFile) {
+        formData.append('pan_file', panFile);
+      }
       formData.append('is_student', 'true');
       if (studentCardFile) formData.append('student_card_file', studentCardFile);
       formData.append('selfie_file', selfie);
@@ -256,6 +296,23 @@ export function StudentVerificationWizard({
     }
   };
 
+  const handleDocumentFallbackSuccess = (docData: any) => {
+    setIsEmailModalOpen(false);
+    setCurrentStep(4);
+    setDecisionResult({
+      confidence: 0.94,
+      student_status: 'VERIFIED_STUDENT_DOCUMENT_BACKED',
+      summary: `Verified via authentic ${docData.doc_label || 'institutional document'}.`,
+    });
+    onVerificationComplete({
+      name: docData.extracted_fields?.name || groundTruth?.name || 'Verified Student',
+      institution: docData.extracted_fields?.institution || cardResult?.extracted_fields?.institution || 'PES University',
+      idNumber: docData.extracted_fields?.roll_number || cardResult?.extracted_fields?.id_number || 'STU2026',
+      confidence: 0.94,
+      status: 'VERIFIED_STUDENT_DOCUMENT_BACKED',
+    });
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="relative w-full max-w-2xl bg-white rounded-3xl p-6 sm:p-9 border border-[#ECECEC] shadow-2xl text-[#14161A]">
@@ -288,7 +345,7 @@ export function StudentVerificationWizard({
         {/* Stepper Indicator */}
         <div className="grid grid-cols-4 gap-2 mb-6 text-center">
           {[
-            { step: 1, label: 'Aadhaar Anchor' },
+            { step: 1, label: 'Government ID' },
             { step: 2, label: 'Student ID' },
             { step: 3, label: 'Live Selfie & Blink' },
             { step: 4, label: 'Status Approved' },
@@ -315,65 +372,142 @@ export function StudentVerificationWizard({
           </div>
         )}
 
-        {/* ----------------- STEP 1: Aadhaar Ground Truth ----------------- */}
+        {/* ----------------- STEP 1: Government ID Ground Truth (Aadhaar or PAN) ----------------- */}
         {currentStep === 1 && (
-          <form onSubmit={handleAadhaarUpload} className="space-y-4">
-            <div className="p-4 rounded-2xl bg-[#FAFAFA] border border-[#ECECEC]">
-              <div className="flex items-center gap-2 mb-1">
-                <Lock className="w-4 h-4 text-[#12805F]" />
-                <span className="text-xs font-bold text-[#14161A] uppercase tracking-wider">
-                  UIDAI Cryptographic Ground Truth
-                </span>
+          <form onSubmit={handleGovtIdUpload} className="space-y-4">
+            {/* Government ID Type Selector Radio Group */}
+            <div className="p-3.5 rounded-2xl bg-[#FAFAFA] border border-[#ECECEC] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <span className="text-xs font-bold text-[#14161A] flex items-center gap-1.5">
+                <CreditCard className="w-4 h-4 text-[#12805F]" />
+                Government ID
+              </span>
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 text-xs font-semibold text-[#14161A] cursor-pointer">
+                  <input
+                    type="radio"
+                    name="govtIdType"
+                    value="AADHAAR"
+                    checked={govtIdType === 'AADHAAR'}
+                    onChange={() => {
+                      setGovtIdType('AADHAAR');
+                      setErrorMessage(null);
+                    }}
+                    className="w-4 h-4 text-[#12805F] focus:ring-[#12805F] accent-[#12805F] cursor-pointer"
+                  />
+                  <span>Aadhaar Card</span>
+                </label>
+                <label className="flex items-center gap-2 text-xs font-semibold text-[#14161A] cursor-pointer">
+                  <input
+                    type="radio"
+                    name="govtIdType"
+                    value="PAN"
+                    checked={govtIdType === 'PAN'}
+                    onChange={() => {
+                      setGovtIdType('PAN');
+                      setErrorMessage(null);
+                    }}
+                    className="w-4 h-4 text-[#12805F] focus:ring-[#12805F] accent-[#12805F] cursor-pointer"
+                  />
+                  <span>PAN Card</span>
+                </label>
               </div>
-              <p className="text-xs text-[#5B6270]">
-                Upload your official e-Aadhaar PDF or card photo. We securely verify the RSA 2048-bit digital signature to anchor your real name and age. Sensitive details are never displayed or shared.
-              </p>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-[#5B6270] mb-1.5">
-                Aadhaar Document (PDF or Photo)
-              </label>
-              <input
-                type="file"
-                accept=".pdf,image/*"
-                required
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    setAadhaarFile(e.target.files[0]);
-                  }
-                }}
-                className="w-full text-xs text-[#5B6270] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#12805F] file:text-white hover:file:bg-[#0E6A4E] file:cursor-pointer"
-              />
-            </div>
+            {govtIdType === 'AADHAAR' ? (
+              <>
+                <div className="p-4 rounded-2xl bg-[#FAFAFA] border border-[#ECECEC]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Lock className="w-4 h-4 text-[#12805F]" />
+                    <span className="text-xs font-bold text-[#14161A] uppercase tracking-wider">
+                      UIDAI Cryptographic Ground Truth
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#5B6270]">
+                    Upload your official e-Aadhaar PDF or card photo. We securely verify the RSA 2048-bit digital signature to anchor your real name and age. Sensitive details are never displayed or shared.
+                  </p>
+                </div>
 
-            <div>
-              <label className="block text-xs font-medium text-[#5B6270] mb-1.5">
-                PDF Password (If protected, e.g. First 4 letters in CAPS + Birth Year)
-              </label>
-              <input
-                type="password"
-                value={aadhaarPassword}
-                onChange={(e) => setAadhaarPassword(e.target.value)}
-                placeholder="e.g. MOHA2005"
-                className="w-full px-4 py-2.5 text-xs bg-white border border-[#ECECEC] rounded-xl text-[#14161A] focus:outline-none focus:border-[#12805F]"
-              />
-            </div>
+                <div>
+                  <label className="block text-xs font-medium text-[#5B6270] mb-1.5">
+                    Aadhaar Document (PDF or Photo)
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,image/*"
+                    required
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setAadhaarFile(e.target.files[0]);
+                      }
+                    }}
+                    className="w-full text-xs text-[#5B6270] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#12805F] file:text-white hover:file:bg-[#0E6A4E] file:cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-[#5B6270] mb-1.5">
+                    PDF Password (If protected, e.g. First 4 letters in CAPS + Birth Year)
+                  </label>
+                  <input
+                    type="password"
+                    value={aadhaarPassword}
+                    onChange={(e) => setAadhaarPassword(e.target.value)}
+                    placeholder="e.g. MOHA2005"
+                    className="w-full px-4 py-2.5 text-xs bg-white border border-[#ECECEC] rounded-xl text-[#14161A] focus:outline-none focus:border-[#12805F]"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="p-4 rounded-2xl bg-[#FAFAFA] border border-[#ECECEC]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <ShieldCheck className="w-4 h-4 text-[#12805F]" />
+                    <span className="text-xs font-bold text-[#14161A] uppercase tracking-wider">
+                      Income Tax PAN Ground Truth
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#5B6270]">
+                    Upload your official PAN Card photo or PDF. We extract the 10-digit PAN number, cardholder name, and date of birth to anchor your verified identity.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-[#5B6270] mb-1.5">
+                    PAN Card Document (Photo or PDF)
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,image/*"
+                    required
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setPanFile(e.target.files[0]);
+                      }
+                    }}
+                    className="w-full text-xs text-[#5B6270] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#12805F] file:text-white hover:file:bg-[#0E6A4E] file:cursor-pointer"
+                  />
+                </div>
+              </>
+            )}
 
             <div className="pt-2 flex justify-end">
               <button
                 type="submit"
-                disabled={isExtractingAadhaar || !aadhaarFile}
+                disabled={isExtractingGovtId || (govtIdType === 'AADHAAR' ? !aadhaarFile : !panFile)}
                 className="py-3 px-7 rounded-full bg-[#12805F] hover:bg-[#0E6A4E] text-white text-xs sm:text-sm font-semibold transition-all shadow-xs cursor-pointer flex items-center gap-2 disabled:opacity-50"
               >
-                {isExtractingAadhaar ? (
+                {isExtractingGovtId ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Cryptographically Anchoring Aadhaar...</span>
+                    <span>
+                      {govtIdType === 'AADHAAR'
+                        ? 'Cryptographically Anchoring Aadhaar...'
+                        : 'Extracting PAN Ground Truth...'}
+                    </span>
                   </>
                 ) : (
                   <>
-                    <span>Anchor Identity Ground Truth</span>
+                    <span>Anchor {govtIdType === 'AADHAAR' ? 'Aadhaar' : 'PAN'} Ground Truth</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -676,7 +810,7 @@ export function StudentVerificationWizard({
                 Student Eligibility Verified!
               </h3>
               <p className="text-xs sm:text-sm text-[#5B6270] mt-1 max-w-md mx-auto">
-                Your student identity has been authenticated against UIDAI cryptographic ground truth and 3-way facial triangulation. You are now authorized to register for CodeX 3.0 and all collegiate events.
+                Your student identity has been authenticated against official Government ID ground truth and 3-way facial triangulation. You are now authorized to register for CodeX 3.0 and all collegiate events.
               </p>
             </div>
 
@@ -700,14 +834,17 @@ export function StudentVerificationWizard({
         onCapture={handleSelfieCaptured}
       />
 
-      {/* College Email Fallback Modal */}
+      {/* College Email & Institutional Documents Fallback Modal */}
       <CollegeEmailFallbackModal
         isOpen={isEmailModalOpen}
         currentConfidence={decisionResult?.confidence || 0.65}
         candidateUsns={cardResult?.usn_candidates}
         candidateName={groundTruth?.name}
+        groundTruth={groundTruth}
+        institution={cardResult?.extracted_fields?.institution}
         onClose={() => setIsEmailModalOpen(false)}
         onVerified={handleEmailFallbackSuccess}
+        onDocumentVerified={handleDocumentFallbackSuccess}
       />
     </div>
   );
